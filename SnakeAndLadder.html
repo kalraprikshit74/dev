@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake and Ladder</title>
+    <style>
+        body { text-align: center; background-color: #f8f8f8; }
+        .board {
+            width: 500px;
+            height: 500px;
+            background-image: url('Snake_ladder.jpeg');
+            background-size: cover;
+            margin: auto;
+            position: relative;
+        }
+        .player {
+            position: absolute;
+            color: black;
+            font-weight: bold;
+            font-size: 16px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background-color: white;
+            border: 2px solid black;
+        }
+        .controls { margin-top: 20px; }
+        button { padding: 10px; margin: 10px; font-size: 16px; }
+        .dice {
+            width: 50px;
+            height: 50px;
+            border: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            background-color: white;
+            margin: 10px auto;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+            transition: transform 0.5s ease-in-out;
+        }
+        .dice.rolling { transform: rotate(360deg); }
+        @keyframes fireworks {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(3); }
+        }
+        .firework {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: gold;
+            border-radius: 50%;
+            animation: fireworks 1s infinite;
+        }
+        .win-message {
+            font-size: 24px;
+            font-weight: bold;
+            color: red;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Snake and Ladder By Prikshit</h1>
+    <div class="board" id="board"></div>
+    <div class="controls">
+        <div class="dice" id="dice">🎲</div>
+        <button id="dice1" onclick="rollDice(1)">Player 1 Roll</button>
+        <button id="dice2" onclick="rollDice(2)" disabled>Player 2 Roll</button>
+    </div>
+    <p id="message">Player 1's turn</p>
+    <script>
+        let playerPositions = [1, 1];
+        let currentPlayer = 0;
+        const snakes = { 98: 40, 92: 68, 87: 24, 62: 18, 54: 34, 17: 7 };
+        const ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 51: 67, 72: 91, 80: 99 };
+
+        function rollDice(player) {
+            if (player !== currentPlayer + 1) return;
+            let dice = document.getElementById("dice");
+            dice.classList.add("rolling");
+            setTimeout(() => {
+                dice.classList.remove("rolling");
+                let roll = Math.floor(Math.random() * 6) + 1;
+                dice.textContent = roll;
+                let newPosition = playerPositions[currentPlayer] + roll;
+                if (newPosition > 100) newPosition = playerPositions[currentPlayer];
+                if (snakes[newPosition]) newPosition = snakes[newPosition];
+                if (ladders[newPosition]) newPosition = ladders[newPosition];
+                playerPositions[currentPlayer] = newPosition;
+                updatePlayers();
+                if (newPosition === 100) {
+                    document.getElementById("message").innerHTML = `<div class='win-message'>🎉 Player ${currentPlayer + 1} wins! 🎉</div>`;
+                    document.getElementById("dice1").disabled = true;
+                    document.getElementById("dice2").disabled = true;
+                    launchFireworks();
+                    return;
+                }
+                currentPlayer = 1 - currentPlayer;
+                document.getElementById("message").textContent = `Player ${currentPlayer + 1}'s turn`;
+                document.getElementById("dice1").disabled = currentPlayer !== 0;
+                document.getElementById("dice2").disabled = currentPlayer !== 1;
+            }, 500);
+        }
+
+        function updatePlayers() {
+            document.querySelectorAll(".player").forEach(el => el.remove());
+            for (let i = 0; i < 2; i++) {
+                let playerPiece = document.createElement("div");
+                playerPiece.classList.add("player");
+                playerPiece.textContent = i === 0 ? "P1" : "P2";
+                let row = Math.floor((playerPositions[i] - 1) / 10);
+                let col = (playerPositions[i] - 1) % 10;
+                if (row % 2 === 1) col = 9 - col;
+                playerPiece.style.left = `${col * 50 + 10}px`;
+                playerPiece.style.top = `${(9 - row) * 50 + 10}px`;
+                document.getElementById("board").appendChild(playerPiece);
+            }
+        }
+
+        function launchFireworks() {
+            for (let i = 0; i < 20; i++) {
+                let firework = document.createElement("div");
+                firework.classList.add("firework");
+                firework.style.left = `${Math.random() * 100}%`;
+                firework.style.top = `${Math.random() * 100}%`;
+                document.body.appendChild(firework);
+                setTimeout(() => firework.remove(), 1000);
+            }
+        }
+    </script>
+</body>
+</html>
