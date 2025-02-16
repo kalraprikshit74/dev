@@ -46,7 +46,7 @@
         let direction = "RIGHT";
         let nextDirection = "RIGHT";
         let apples = 0;
-        let speed = 200;
+        let speed = 180;
         
         document.addEventListener("keydown", changeDirection);
 
@@ -85,7 +85,7 @@
             
             if (snakeX < 0 || snakeY < 0 || snakeX >= canvas.width || snakeY >= canvas.height || checkCollision(newHead, snake)) {
                 alert("Game Over! You ate " + apples + " apples!");
-                location.reload();
+                window.location.reload();
             }
         }
 
