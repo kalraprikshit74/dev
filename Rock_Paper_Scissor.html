@@ -104,7 +104,7 @@
                 userScore++;
                 document.getElementById('user-score').textContent = userScore;
                 resultText += ' - You Win!';
-                if (userScore === 5) {
+                if (userScore === 5 || player2Score === 0) {
                     document.getElementById('fireworks').style.display = 'block';
                     alert("Congratulations! You are the winner!");
 					window.location.reload();
