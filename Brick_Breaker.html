@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Brick Breaker Game</title>
+    <style>
+        body {
+            text-align: center;
+            background: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #startScreen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        canvas {
+            display: none;
+            background: yellow;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+<div id="startScreen">
+    <h1>2D Brick Breaker Game</h1>
+    <label for="playerName">Enter Your Name:</label>
+    <input type="text" id="playerName">
+    <button onclick="startGame()">Start Game</button>
+</div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+Move the pad using mouse.
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    let paddleWidth = 100, paddleHeight = 15, paddleX;
+    let ballRadius = 10, ballX, ballY, ballDX = 4, ballDY = -4;
+    let bricks = [];
+    let rows = 5, cols = 8, brickWidth = 80, brickHeight = 20, brickPadding = 10;
+    let currentScore = 0, highScore = localStorage.getItem("highScore") || 0;
+    let isGameStarted = false;
+
+    function startGame() {
+        const playerName = document.getElementById("playerName").value;
+        if (playerName.trim() === "") {
+            alert("Please enter your name!");
+            return;
+        }
+        document.getElementById("startScreen").style.display = "none";
+        canvas.style.display = "block";
+        paddleX = (canvas.width - paddleWidth) / 2;
+        ballX = canvas.width / 2;
+        ballY = canvas.height - 30;
+        createBricks();
+        canvas.addEventListener("mousemove", mouseMoveHandler);
+        canvas.addEventListener("touchmove", touchMoveHandler);
+        canvas.addEventListener("click", () => { isGameStarted = true; });
+        gameLoop();
+    }
+
+    function createBricks() {
+        for (let row = 0; row < rows; row++) {
+            bricks[row] = [];
+            for (let col = 0; col < cols; col++) {
+                bricks[row][col] = { x: col * (brickWidth + brickPadding) + 30, y: row * (brickHeight + brickPadding) + 30, status: 1 };
+            }
+        }
+    }
+
+    function drawPaddle() {
+        ctx.fillStyle = "blue";
+        ctx.fillRect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
+    }
+
+    function drawBall() {
+        ctx.beginPath();
+        ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+        ctx.fillStyle = "red";
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    function drawBricks() {
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                if (bricks[row][col].status === 1) {
+                    ctx.fillStyle = "green";
+                    ctx.fillRect(bricks[row][col].x, bricks[row][col].y, brickWidth, brickHeight);
+                }
+            }
+        }
+    }
+
+    function collisionDetection() {
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                let brick = bricks[row][col];
+                if (brick.status === 1) {
+                    if (ballX > brick.x && ballX < brick.x + brickWidth && ballY > brick.y && ballY < brick.y + brickHeight) {
+                        ballDY = -ballDY;
+                        brick.status = 0;
+                        currentScore++;
+                        if (currentScore === rows * cols) {
+                            alert("You Win!");
+                            document.location.reload();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function drawScore() {
+        ctx.fillStyle = "white";
+        ctx.fillText("Current Score: " + currentScore, 10, 20);
+        ctx.fillText("High Score: " + highScore, 10, 40);
+    }
+
+    function mouseMoveHandler(e) {
+        let relativeX = e.clientX - canvas.offsetLeft;
+        if (relativeX > 0 && relativeX < canvas.width) {
+            paddleX = relativeX - paddleWidth / 2;
+        }
+    }
+
+    function touchMoveHandler(e) {
+        let touchX = e.touches[0].clientX - canvas.offsetLeft;
+        if (touchX > 0 && touchX < canvas.width) {
+            paddleX = touchX - paddleWidth / 2;
+        }
+    }
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBricks();
+        drawBall();
+        drawPaddle();
+        drawScore();
+        collisionDetection();
+
+        if (isGameStarted) {
+            ballX += ballDX;
+            ballY += ballDY;
+
+            if (ballX + ballRadius > canvas.width || ballX - ballRadius < 0) ballDX = -ballDX;
+            if (ballY - ballRadius < 0) ballDY = -ballDY;
+            if (ballY + ballRadius > canvas.height) {
+                alert("Game Over!");
+                if (currentScore > highScore) {
+                    highScore = currentScore;
+                    localStorage.setItem("highScore", highScore);
+                }
+                document.location.reload();
+            }
+
+            if (ballY + ballRadius > canvas.height - paddleHeight - 10 && ballX > paddleX && ballX < paddleX + paddleWidth) {
+                ballDY = -ballDY;
+            }
+        }
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>

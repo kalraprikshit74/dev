@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minesweeper</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      text-align: center;
+      background-color: #87ceeb;
+      font-family: Arial, sans-serif;
+    }
+    #gameBoard {
+      display: grid;
+      gap: 2px;
+      justify-content: center;
+      margin: 20px auto;
+      background-color: #333;
+      padding: 10px;
+    }
+    .cell {
+      width: 40px;
+      height: 40px;
+      background-color: #ccc;
+      border: 1px solid #999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .cell:hover { background-color: #bbb; }
+    .flag { background-color: yellow; }
+    .mine { background-color: red; }
+    .uncovered { background-color: #ddd; pointer-events: none; }
+    #fireworks {
+      font-size: 50px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<h1>Minesweeper</h1>
+<div>
+  <label for="difficulty">Select Difficulty:</label>
+  <select id="difficulty" onchange="setDifficulty()">
+    <option value="10">Easy (10x10)</option>
+    <option value="15">Medium (15x15)</option>
+    <option value="20">Hard (20x20)</option>
+  </select>
+</div>
+<div>Time: <span id="timer">0</span> sec</div>
+<div id="scoreboard">Flags: <span id="flags">0</span> / Mines: <span id="mines">10</span></div>
+<div id="gameBoard"></div>
+<button onclick="resetGame()">Restart</button>
+<div id="fireworks" style="display:none;">🎆🎇🎉</div>
+
+<script>
+let boardSize = 10;
+let mineCount = 10;
+let timer = 0;
+let interval;
+let flags = 0;
+let gameOver = false;
+let board = [];
+
+function setDifficulty() {
+  const difficulty = document.getElementById("difficulty").value;
+  boardSize = parseInt(difficulty);
+  mineCount = Math.floor(boardSize * boardSize * 0.15);
+  document.getElementById("mines").innerText = mineCount;
+  resetGame();
+}
+
+function startTimer() {
+  timer = 0;
+  document.getElementById("timer").innerText = timer;
+  clearInterval(interval);
+  interval = setInterval(() => {
+    timer++;
+    document.getElementById("timer").innerText = timer;
+  }, 1000);
+}
+
+function createBoard() {
+  const gameBoard = document.getElementById("gameBoard");
+  gameBoard.innerHTML = "";
+  gameBoard.style.gridTemplateColumns = `repeat(${boardSize}, 40px)`;
+  gameBoard.style.gridTemplateRows = `repeat(${boardSize}, 40px)`;
+  board = Array(boardSize).fill().map(() => Array(boardSize).fill(0));
+  flags = 0;
+  document.getElementById("flags").innerText = flags;
+
+  placeMines();
+  calculateNumbers();
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      let cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.onmousedown = (e) => handleClick(e, r, c);
+      gameBoard.appendChild(cell);
+    }
+  }
+  startTimer();
+}
+
+function placeMines() {
+  let placed = 0;
+  while (placed < mineCount) {
+    let r = Math.floor(Math.random() * boardSize);
+    let c = Math.floor(Math.random() * boardSize);
+    if (board[r][c] !== "M") {
+      board[r][c] = "M";
+      placed++;
+    }
+  }
+}
+
+function calculateNumbers() {
+  const directions = [-1, 0, 1];
+  for (let r = 0; r < boardSize; r++) {
+    for (let c = 0; c < boardSize; c++) {
+      if (board[r][c] === "M") continue;
+      let mines = 0;
+      directions.forEach(dr => directions.forEach(dc => {
+        let nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < boardSize && nc >= 0 && nc < boardSize && board[nr][nc] === "M") {
+          mines++;
+        }
+      }));
+      board[r][c] = mines;
+    }
+  }
+}
+
+function handleClick(e, row, col) {
+  let cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  if (gameOver || cell.classList.contains("uncovered")) return;
+
+  if (e.button === 0) {
+    uncoverCell(row, col);
+    checkWin();
+  } else if (e.button === 2) {
+    if (!cell.classList.contains("flag")) {
+      cell.classList.add("flag");
+      cell.innerText = "🚩";
+      flags++;
+    } else {
+      cell.classList.remove("flag");
+      cell.innerText = "";
+      flags--;
+    }
+    document.getElementById("flags").innerText = flags;
+  }
+}
+
+function uncoverCell(row, col) {
+  let cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  if (!cell || cell.classList.contains("uncovered")) return;
+  cell.classList.add("uncovered");
+  if (board[row][col] === "M") {
+    setTimeout(() => revealAllMines(), 100);
+    alert("Game Over!");
+    gameOver = true;
+    clearInterval(interval);
+  } else {
+    cell.innerText = board[row][col] > 0 ? board[row][col] : "";
+    if (board[row][col] === 0) {
+      [-1, 0, 1].forEach(dr => [-1, 0, 1].forEach(dc => {
+        uncoverCell(row + dr, col + dc);
+      }));
+    }
+  }
+}
+
+function revealAllMines() {
+  let mines = document.querySelectorAll(".cell");
+  let delay = 0;
+  mines.forEach(cell => {
+    let row = cell.dataset.row;
+    let col = cell.dataset.col;
+    if (board[row][col] === "M") {
+      setTimeout(() => {
+        cell.classList.add("mine");
+        cell.innerText = "💣";
+      }, delay);
+      delay += 200;
+    }
+  });
+}
+
+function resetGame() {
+  gameOver = false;
+  createBoard();
+  document.getElementById("fireworks").style.display = "none";
+}
+
+document.oncontextmenu = (e) => e.preventDefault();
+window.onload = createBoard;
+</script>
+</body>
+</html>

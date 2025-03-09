@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Bird Game</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: skyblue;
+  }
+  canvas {
+    display: block;
+    margin: auto;
+    background: lightblue;
+    border: 3px solid black;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+Press up arrow key to keep flying.
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let birdY = 200;
+let birdX = 100;
+let birdSize = 30;
+let gravity = 0.3;
+let velocity = 0;
+let score = 0;
+let gameOver = false;
+let firstMove = false;
+
+let obstructions = [];
+let obstructionWidth = 50;
+let obstructionGap = 150;
+let obstructionSpeed = 3;
+let frame = 0;
+
+function drawBird() {
+  ctx.fillStyle = "yellow";
+  ctx.fillRect(birdX, birdY, birdSize, birdSize);
+}
+
+function generateObstructions() {
+  if (frame % 100 === 0) {
+    let obstructionHeight = Math.random() * (canvas.height - obstructionGap - 50) + 20;
+    obstructions.push({ x: canvas.width, topHeight: obstructionHeight });
+  }
+}
+
+function drawObstructions() {
+  ctx.fillStyle = "green";
+  for (let obs of obstructions) {
+    ctx.fillRect(obs.x, 0, obstructionWidth, obs.topHeight);
+    ctx.fillRect(obs.x, obs.topHeight + obstructionGap, obstructionWidth, canvas.height - obs.topHeight - obstructionGap);
+    obs.x -= obstructionSpeed;
+
+    if (obs.x + obstructionWidth < 0) {
+      obstructions.shift();
+      score += 10;
+    }
+  }
+}
+
+function checkCollision() {
+  if (birdY + birdSize > canvas.height || birdY < 0) {
+    gameOver = true;
+  }
+
+  for (let obs of obstructions) {
+    if (birdX + birdSize > obs.x && birdX < obs.x + obstructionWidth) {
+      if (birdY < obs.topHeight || birdY + birdSize > obs.topHeight + obstructionGap) {
+        gameOver = true;
+      }
+    }
+  }
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp") {
+    if (!firstMove) {
+      firstMove = true;
+      gameLoop();
+    }
+    velocity = -3;
+  }
+  if (e.key === "ArrowDown") velocity = 3;
+  if (e.key === "Enter" && gameOver) {
+    document.location.reload();
+  }
+});
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBird();
+
+  if (firstMove) {
+    generateObstructions();
+    drawObstructions();
+    velocity += gravity;
+    birdY += velocity;
+    checkCollision();
+  }
+
+  ctx.fillStyle = "black";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 20, 30);
+
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "40px Arial";
+    ctx.fillText("Game Over", canvas.width / 2 - 100, canvas.height / 2);
+    ctx.font = "20px Arial";
+    ctx.fillText("Press ENTER to Restart", canvas.width / 2 - 100, canvas.height / 2 + 40);
+    return;
+  }
+
+  frame++;
+  requestAnimationFrame(gameLoop);
+}
+
+// Show bird at the start
+drawBird();
+</script>
+</body>
+</html>
