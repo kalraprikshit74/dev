@@ -104,7 +104,7 @@
                 userScore++;
                 document.getElementById('user-score').textContent = userScore;
                 resultText += ' - You Win!';
-                if (userScore === 5 || player2Score === 0) {
+                if (userScore === 5) {
                     document.getElementById('fireworks').style.display = 'block';
                     alert("Congratulations! You are the winner!");
 					window.location.reload();
@@ -113,6 +113,10 @@
                 aiScore++;
                 document.getElementById('ai-score').textContent = aiScore;
                 resultText += ' - You Lose!';
+				if( aiScore==5){
+					alert("You loose!");
+					window.location.reload();
+				}
             }
             document.getElementById('result').textContent = resultText;
         }
