@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #faf8ef;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .game-container {
+            background-color: #bbada0;
+            border-radius: 5px;
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            grid-template-rows: repeat(4, 100px);
+            gap: 10px;
+            padding: 10px;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .tile {
+            background-color: #ccc0b3;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 100px;
+            font-size: 36px;
+            font-weight: bold;
+            color: #776e65;
+        }
+        .tile-2 { background-color: #eee4da; }
+        .tile-4 { background-color: #ede0c8; }
+        .tile-8 { background-color: #f2b179; }
+        .tile-16 { background-color: #f59563; }
+        .tile-32 { background-color: #f67c5f; }
+        .tile-64 { background-color: #f65e3b; }
+        .tile-128 { background-color: #edcf72; }
+        .tile-256 { background-color: #edcc61; }
+        .tile-512 { background-color: #edc850; }
+        .tile-1024 { background-color: #edb840; }
+        .tile-2048 { background-color: #ed9b32; }
+
+        .score-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 100px;
+            height: 200px;
+            background-color: #bbada0;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #776e65;
+        }
+        .score-title {
+            font-size: 18px;
+            color: #776e65;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="game-container">
+        <!-- Tiles will be dynamically added here -->
+    </div>
+    <div class="score-container">
+        <div class="score-title">Score</div>
+        <div class="score" id="score">0</div>
+    </div>
+
+    <script>
+        let grid = [];  
+        let score = 0;
+        const gridSize = 4;
+        const gameContainer = document.getElementById('game-container');
+        const scoreDisplay = document.getElementById('score');
+
+        function createEmptyGrid() {
+            for (let i = 0; i < gridSize; i++) {
+                grid[i] = [];
+                for (let j = 0; j < gridSize; j++) {
+                    grid[i][j] = 0;
+                }
+            }
+        }
+
+        function drawGrid() {
+            gameContainer.innerHTML = '';
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    const tileValue = grid[i][j];
+                    if (tileValue !== 0) {
+                        tile.textContent = tileValue;
+                        tile.classList.add(`tile-${tileValue}`);
+                    }
+                    gameContainer.appendChild(tile);
+                }
+            }
+        }
+
+        function getRandomEmptyPosition() {
+            const emptyPositions = [];
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (grid[i][j] === 0) {
+                        emptyPositions.push([i, j]);
+                    }
+                }
+            }
+            return emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
+        }
+
+        function addNewTile() {
+            const [i, j] = getRandomEmptyPosition();
+            grid[i][j] = 2;
+        }
+
+        function slideAndMergeLeft() {
+            for (let i = 0; i < gridSize; i++) {
+                let newRow = grid[i].filter(value => value !== 0);  
+                let mergedRow = [];
+                let skip = false;
+
+                for (let j = 0; j < newRow.length; j++) {
+                    if (skip) {
+                        skip = false;
+                        continue;
+                    }
+                    if (newRow[j] === newRow[j + 1]) {
+                        mergedRow.push(newRow[j] * 2);
+                        score += newRow[j] * 2;  // Update score
+                        skip = true;
+                    } else {
+                        mergedRow.push(newRow[j]);
+                    }
+                }
+
+                while (mergedRow.length < gridSize) mergedRow.push(0);  
+                grid[i] = mergedRow;
+            }
+        }
+
+        function slideAndMergeRight() {
+            grid = grid.map(row => row.reverse());
+            slideAndMergeLeft();
+            grid = grid.map(row => row.reverse());
+        }
+
+        function slideAndMergeUp() {
+            grid = rotateGrid();
+            slideAndMergeLeft();
+            grid = rotateGrid();
+            grid = rotateGrid();
+            grid = rotateGrid();
+        }
+
+        function slideAndMergeDown() {
+            grid = rotateGrid();
+            grid = rotateGrid();
+            grid = rotateGrid();
+            slideAndMergeLeft();
+            grid = rotateGrid();
+        }
+
+        function rotateGrid() {
+            const newGrid = [];
+            for (let i = 0; i < gridSize; i++) {
+                newGrid[i] = [];
+                for (let j = 0; j < gridSize; j++) {
+                    newGrid[i][j] = grid[gridSize - j - 1][i];
+                }
+            }
+            return newGrid;
+        }
+
+        function moveLeft() {
+            slideAndMergeLeft();
+            addNewTile();
+            drawGrid();
+            updateScore();
+        }
+
+        function moveUp() {
+            slideAndMergeUp();
+            addNewTile();
+            drawGrid();
+            updateScore();
+        }
+
+        function moveRight() {
+            slideAndMergeRight();
+            addNewTile();
+            drawGrid();
+            updateScore();
+        }
+
+        function moveDown() {
+            slideAndMergeDown();
+            addNewTile();
+            drawGrid();
+            updateScore();
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = score;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'ArrowLeft') {
+                moveLeft();
+            } else if (event.key === 'ArrowUp') {
+                moveDown();
+            } else if (event.key === 'ArrowRight') {
+                moveRight();
+            } else if (event.key === 'ArrowDown') {
+                moveUp();
+            }
+        }
+
+        function initializeGame() {
+            createEmptyGrid();
+            addNewTile();
+            addNewTile();
+            drawGrid();
+            window.addEventListener('keydown', handleKeyPress);
+        }
+
+        initializeGame();
+    </script>
+</body>
+</html>
