@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Search Puzzle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: linear-gradient(to right, lightblue, lightgreen);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .word-list {
+            width: 150px;
+            text-align: left;
+        }
+        .word-list h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            font-size: 18px;
+            margin: 5px 0;
+        }
+        li.found {
+            text-decoration: line-through;
+            color: gray;
+        }
+        #word-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 40px);
+            gap: 5px;
+            justify-content: center;
+            margin: 20px auto;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid black;
+            font-size: 20px;
+            text-transform: uppercase;
+            cursor: pointer;
+            background-color: white;
+        }
+        .cell.selected {
+            background-color: yellow;
+        }
+        .cell.found {
+            background-color: lightcoral;
+        }
+        #fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+    </style>
+	
+</head>
+<body>
+    <div class="container">
+        <div class="word-list">
+            <h2>Find These Words:</h2>
+            <ul id="word-list"></ul>
+        </div>
+        <div>
+            <div id="word-grid"></div>
+        </div>
+    </div>
+    
+    <canvas id="fireworks"></canvas>
+
+    <script>
+        const allWords = [
+            "kayak", "lighthouse", "magnet", "nectarine", "octopus", "panther", "quokka", "chair", "table",
+            "raccoon", "satellite", "toucan", "ukulele", "vortex", "wombat", "xray", "laptop", "mouse", "rainbow", "sun", "rain", "car",
+            "yacht", "zeppelin", "aquarium", "blueberry", "caterpillar", "dragonfly", "apple", "vansh", "daksh", "prikshit", "mango", "sand", "grapes", "tiger", "lion", "pizza", "sandwich", "burger", "cat", "dog", "shirt", "fox"
+        ];
+
+        let words = [];
+        const gridSize = 8;
+        let grid = [];
+        let selectedCells = [];
+        let foundWords = new Set();
+
+        const wordGrid = document.getElementById("word-grid");
+        const wordList = document.getElementById("word-list");
+        const fireworksCanvas = document.getElementById("fireworks");
+		const ctx = fireworksCanvas.getContext("2d");
+		let particles = [];
+		for (let i = 0; i < 100; i++) {
+			particles.push({
+				x: fireworksCanvas.width / 2,
+				y: fireworksCanvas.height / 2,
+				dx: (Math.random() - 0.5) * 10,
+				dy: (Math.random() - 0.5) * 10,
+				size: Math.random() * 4 + 1
+			});
+		}
+        function startGame() {
+            words = [];
+            while (words.length < 8) {
+                let idx = Math.floor(Math.random() * allWords.length);
+                let word = allWords[idx];
+                if (!words.includes(word)) {
+                    words.push(word);
+                }
+            }
+
+            grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(""));
+            selectedCells = [];
+            foundWords.clear();
+
+            wordGrid.innerHTML = "";
+            wordList.innerHTML = "";
+            fireworksCanvas.style.display = "none";
+
+            placeWords();
+            fillEmptySpaces();
+            renderGrid();
+            renderWordList();
+        }
+
+        function placeWords() {
+            for (const word of words) {
+                let placed = false;
+                let attempts = 0;
+
+                while (!placed && attempts < 100) {
+                    let row = Math.floor(Math.random() * gridSize);
+                    let col = Math.floor(Math.random() * gridSize);
+                    
+                    let directions = [[1,0], [0,1], [1,1], [-1,1]];
+                    directions = directions.sort(() => Math.random() - 0.5);
+
+                    for (const [dx, dy] of directions) {
+                        if (canPlaceWord(word, row, col, dx, dy)) {
+                            for (let i = 0; i < word.length; i++) {
+                                grid[row + i * dy][col + i * dx] = word[i];
+                            }
+                            placed = true;
+                            break;
+                        }
+                    }
+                    attempts++;
+                }
+            }
+        }
+
+        function canPlaceWord(word, row, col, dx, dy) {
+            for (let i = 0; i < word.length; i++) {
+                let newRow = row + i * dy;
+                let newCol = col + i * dx;
+                if (newRow < 0 || newRow >= gridSize || newCol < 0 || newCol >= gridSize || (grid[newRow][newCol] !== "" && grid[newRow][newCol] !== word[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function fillEmptySpaces() {
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    if (grid[row][col] === "") {
+                        grid[row][col] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                    }
+                }
+            }
+        }
+
+        function renderGrid() {
+            wordGrid.innerHTML = "";
+            grid.forEach((row, rowIndex) => {
+                row.forEach((letter, colIndex) => {
+                    let cell = document.createElement("div");
+                    cell.className = "cell";
+                    cell.textContent = letter;
+                    cell.dataset.row = rowIndex;
+                    cell.dataset.col = colIndex;
+                    cell.addEventListener("click", selectCell);
+                    wordGrid.appendChild(cell);
+                });
+            });
+        }
+
+        function renderWordList() {
+            words.forEach(word => {
+                let li = document.createElement("li");
+                li.textContent = word;
+                wordList.appendChild(li);
+            });
+        }
+
+        function selectCell(event) {
+            let cell = event.target;
+            if (cell.classList.contains("found")) return;
+
+            if (cell.classList.contains("selected")) {
+                cell.classList.remove("selected");
+                selectedCells = selectedCells.filter(c => c !== cell);
+            } else {
+                cell.classList.add("selected");
+                selectedCells.push(cell);
+            }
+
+            checkSelection();
+        }
+
+        function checkSelection() {
+            let selectedWord = selectedCells.map(cell => cell.textContent).join("").toLowerCase();
+            let reversedWord = selectedWord.split("").reverse().join("");
+
+            if (words.includes(selectedWord) || words.includes(reversedWord)) {
+                selectedCells.forEach(cell => cell.classList.replace("selected", "found"));
+                document.querySelectorAll("li").forEach(li => {
+                    if (li.textContent === selectedWord || li.textContent === reversedWord) li.classList.add("found");
+                });
+                foundWords.add(selectedWord);
+                if (foundWords.size === words.length) animateFireworks();
+                selectedCells = [];
+            } else if (selectedWord.length > 10) {
+                resetSelection();
+            }
+        }
+
+        function resetSelection() {
+            selectedCells.forEach(cell => cell.classList.remove("selected"));
+            selectedCells = [];
+        }
+
+           function animateFireworks() {
+				fireworksCanvas.style.display = "block";
+                ctx.clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
+                particles.forEach(p => {
+                    p.x += p.dx;
+                    p.y += p.dy;
+                    ctx.fillStyle = "red";
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                requestAnimationFrame(animateFireworks);
+            
+            setTimeout(function() {
+				alert("Congratulations!!!");
+				top.location.reload();
+			}, 1000);
+        }
+        startGame();
+    </script>
+</body>
+</html>

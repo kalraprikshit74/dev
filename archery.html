@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archery Game</title>
+    <style>
+        body { text-align: center; }
+        canvas { background: lightgreen; display: block; margin: auto; }
+    </style>
+</head>
+<body>
+    <h1>Archery Game</h1>
+    <p>Wind Speed: <span id="windSpeed">0</span> m/s</p>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const windSpeedDisplay = document.getElementById("windSpeed");
+
+        let windSpeed = Math.random() * 4 - 2;
+        let aimingX = 200;
+        let aimingY = 200;
+        let isAiming = false;
+        let arrow = null;
+
+        function drawTarget() {
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(700, 200, 50, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(700, 200, 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "blue";
+            ctx.beginPath();
+            ctx.arc(700, 200, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawBow() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(100, 0, 10, 500);
+        }
+
+        function drawAimingPoint() {
+            ctx.fillStyle = "black";
+			ctx.font = "70px Arial";
+            ctx.fillText("+", aimingX, aimingY);
+        }
+
+        function drawArrow() {
+            if (arrow) {
+                ctx.fillStyle = "brown";
+                ctx.fillRect(arrow.x, arrow.y, 20, 5);
+            }
+        }
+
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTarget();
+            drawBow();
+            drawAimingPoint();
+            drawArrow();
+        }
+
+        function shootArrow() {
+            arrow = { x: 120, y: aimingY, speed: 5, drift: windSpeed };
+            let interval = setInterval(() => {
+                arrow.x += arrow.speed;
+                arrow.y += arrow.drift;
+                updateGame();
+                if (arrow.x >= 700) {
+                    clearInterval(interval);
+                    calculateScore();
+                    arrow = null;
+                }
+            }, 20);
+        }
+
+        function calculateScore() {
+            let distance = Math.abs(arrow.y - 200);
+            let score = distance < 10 ? 10 : distance < 30 ? 5 : distance < 50 ? 2 : 0;
+            alert("You scored: " + score + " points!");
+        }
+
+        canvas.addEventListener("mousedown", (e) => {
+            isAiming = true;
+            aimingX = e.offsetX;
+            aimingY = e.offsetY;
+            updateGame();
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (isAiming) {
+                aimingX = e.offsetX;
+                aimingY = e.offsetY;
+                updateGame();
+            }
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            isAiming = false;
+            shootArrow();
+        });
+
+        setInterval(() => {
+            windSpeed = Math.random() * 2.5 - 2;
+            windSpeedDisplay.innerText = windSpeed.toFixed(2);
+        }, 5000);
+
+        updateGame();
+    </script>
+</body>
+</html>
