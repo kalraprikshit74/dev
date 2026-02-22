@@ -1,0 +1,8 @@
+{
+    "java.project.referencedLibraries": [
+        "D:/work_dsi/Workspace/tomee_lib/*.jar"
+    ],
+    "java.project.sourcePaths": [
+        "src"
+    ]
+}
