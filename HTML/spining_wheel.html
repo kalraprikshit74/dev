@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Wheel Game</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, lightblue, lightgreen);
+            overflow: hidden;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .wheel-container {
+            position: relative;
+            display: inline-block;
+        }
+        canvas {
+            width: 300px;
+            height: 300px;
+        }
+        .emoji-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 50px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .spinner-indicator {
+            position: absolute;
+            top: 110%;
+            left: 50%;
+            transform: translateX(100%);
+            font-size: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin {
+            from { transform: translateX(100%) rotate(0deg); }
+            to { transform: translateX(100%) rotate(360deg); }
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            font-size: 24px;
+            border-radius: 10px;
+            z-index: 10;
+        }
+        .fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎡 Number Wheel</h1>
+    
+    <div class="controls">
+        <input type="hidden" id="minValue" value="10">
+        <input type="hidden" id="maxValue" value="20">
+        <input type="hidden" id="excludeValues">
+    </div>
+
+    <div class="wheel-container">
+        <div class="emoji-center">🐭</div>
+        <canvas id="wheelCanvas"></canvas>
+    </div>
+
+    <div id="spinnerIndicator" class="spinner-indicator">⚙️</div>
+
+    <button id="spinBtn" onclick="spinWheel()">Spin the Wheel</button>
+
+    <div id="popup" class="popup"></div>
+
+    <canvas id="fireworksCanvas" class="fireworks"></canvas>
+
+    <script>
+        const canvas = document.getElementById("wheelCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = 300;
+        canvas.height = 300;
+        let values = [];
+        let angle = 0;
+        let spinning = false;
+
+        function generateWheel() {
+            const minValue = parseInt(document.getElementById("minValue").value);
+            const maxValue = parseInt(document.getElementById("maxValue").value);
+            const excludeValues = document.getElementById("excludeValues").value.split(',').map(Number);
+
+            values = [];
+            for (let i = minValue; i <= maxValue; i++) {
+                if (!excludeValues.includes(i)) {
+                    values.push(i);
+                }
+            }
+
+            drawWheel();
+        }
+
+        function drawWheel() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const sections = values.length;
+            const arcSize = (2 * Math.PI) / sections;
+            
+            for (let i = 0; i < sections; i++) {
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2, canvas.height / 2);
+                ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, i * arcSize, (i + 1) * arcSize);
+                ctx.fillStyle = `hsl(${(i * 360) / sections}, 100%, 50%)`;
+                ctx.fill();
+                ctx.closePath();
+                
+                ctx.fillStyle = "white";
+                ctx.font = "18px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                const angle = (i + 0.5) * arcSize;
+                const x = canvas.width / 2 + Math.cos(angle) * (canvas.width / 3);
+                const y = canvas.height / 2 + Math.sin(angle) * (canvas.height / 3);
+                ctx.fillText(values[i], x, y);
+            }
+        }
+
+        function spinWheel() {
+            if (spinning) return;
+            spinning = true;
+            document.getElementById("spinnerIndicator").style.display = "block";
+
+            let spins = Math.floor(Math.random() * 10) + 10;
+            let spinTime = 0;
+            let spinInterval = setInterval(() => {
+                angle += Math.PI / 10;
+                canvas.style.transform = `rotate(${angle}rad)`;
+                spinTime++;
+
+                if (spinTime >= spins) {
+                    clearInterval(spinInterval);
+                    spinning = false;
+                    document.getElementById("spinnerIndicator").style.display = "none";
+                    getResult();
+                }
+            }, 100);
+        }
+
+        function getResult() {
+            const sections = values.length;
+            const arcSize = (2 * Math.PI) / sections;
+            let winningIndex = Math.floor(sections - (angle % (2 * Math.PI)) / arcSize) % sections;
+            const winningNumber = values[winningIndex];
+
+            showPopup(winningNumber);
+            showFireworks();
+        }
+
+        function showPopup(number) {
+            const popup = document.getElementById("popup");
+            popup.innerText = `The result is: ${number}`;
+            popup.style.display = "block";
+            setTimeout(() => {
+                popup.style.display = "none";
+            }, 3000);
+        }
+
+        function showFireworks() {
+            const fireCanvas = document.getElementById("fireworksCanvas");
+            const fCtx = fireCanvas.getContext("2d");
+            fireCanvas.width = window.innerWidth;
+            fireCanvas.height = window.innerHeight;
+            let particles = [];
+
+            for (let i = 0; i < 200; i++) {
+                particles.push({
+                    x: Math.random() * fireCanvas.width,
+                    y: Math.random() * fireCanvas.height,
+                    dx: (Math.random() - 0.5) * 6,
+                    dy: (Math.random() - 0.5) * 6,
+                    size: Math.random() * 4 + 2,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`
+                });
+            }
+
+            function animateParticles() {
+                fCtx.clearRect(0, 0, fireCanvas.width, fireCanvas.height);
+                particles.forEach(p => {
+                    p.x += p.dx;
+                    p.y += p.dy;
+                    p.size *= 0.97;
+
+                    fCtx.beginPath();
+                    fCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    fCtx.fillStyle = p.color;
+                    fCtx.fill();
+                });
+
+                particles = particles.filter(p => p.size > 0.5);
+                if (particles.length > 0) {
+                    requestAnimationFrame(animateParticles);
+                }
+            }
+
+            animateParticles();
+        }
+
+        generateWheel();
+    </script>
+</body>
+</html>

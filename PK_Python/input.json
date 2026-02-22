@@ -1,0 +1,25 @@
+{
+  "environment": {
+    "host": "http://localhost:5000"
+  },
+  "requests": [
+    {
+      "url": "{{host}}/multiply",
+      "method": "POST",
+      "headers": {},
+      "body": {
+        "num1": 4,
+        "num2": 5,
+        "host": "{{host}}"
+      }
+    },
+    {
+      "url": "http://localhost:5000/multiply",
+      "method": "POST",
+      "body": {
+        "num1": 4,
+        "num2": 15
+      }
+    }
+  ]
+}

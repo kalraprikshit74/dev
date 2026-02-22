@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris Game</title>
+<style>
+  body {
+    text-align: center;
+    background-color: #282c34;
+    color: white;
+    font-family: Arial, sans-serif;
+  }
+  canvas {
+    border: 4px solid white;
+    display: block;
+    margin: 20px auto;
+  }
+  #score {
+    margin: 10px;
+    font-size: 20px;
+  }
+</style>
+</head>
+<body>
+<h1>Tetris Game</h1>
+<div id="score">Score: 0</div>
+<canvas width="300" height="600" id="gameCanvas"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const ROWS = 20;
+const COLS = 10;
+const BLOCK_SIZE = 30;
+const COLORS = ["cyan", "blue", "orange", "yellow", "green", "purple", "red"];
+let score = 0;
+
+const SHAPES = [
+  [[1, 1, 1, 1]],
+  [[1, 0, 0], [1, 1, 1]],
+  [[0, 0, 1], [1, 1, 1]],
+  [[1, 1], [1, 1]],
+  [[0, 1, 1], [1, 1, 0]],
+  [[0, 1, 0], [1, 1, 1]],
+  [[1, 1, 0], [0, 1, 1]]
+];
+
+let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+let piece = createPiece();
+
+function createPiece() {
+  let type = Math.floor(Math.random() * SHAPES.length);
+  return {
+    shape: SHAPES[type],
+    color: COLORS[type],
+    x: 3,
+    y: 0
+  };
+}
+
+function drawBlock(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+  ctx.strokeStyle = "black";
+  ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+}
+
+function drawBoard() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (board[y][x]) {
+        drawBlock(x, y, COLORS[board[y][x] - 1]);
+      }
+    }
+  }
+}
+
+function drawPiece() {
+  piece.shape.forEach((row, dy) => {
+    row.forEach((value, dx) => {
+      if (value) {
+        drawBlock(piece.x + dx, piece.y + dy, piece.color);
+      }
+    });
+  });
+}
+
+function movePiece(dx, dy) {
+  piece.x += dx;
+  piece.y += dy;
+}
+
+function rotatePiece() {
+  const rotated = piece.shape[0].map((_, i) => piece.shape.map(row => row[i])).reverse();
+  const originalShape = piece.shape;
+  piece.shape = rotated;
+  if (collision(0, 0)) {
+    piece.shape = originalShape;
+  }
+}
+
+function dropPiece() {
+  while (!collision(0, 1)) {
+    piece.y++;
+  }
+  placePiece();
+  piece = createPiece();
+  if (collision(0, 0)) {
+    gameOver();
+  }
+}
+
+function collision(dx, dy) {
+  return piece.shape.some((row, y) => {
+    return row.some((value, x) => {
+      if (value) {
+        let newX = piece.x + x + dx;
+        let newY = piece.y + y + dy;
+        return newX < 0 || newX >= COLS || newY >= ROWS || (newY >= 0 && board[newY][newX]);
+      }
+      return false;
+    });
+  });
+}
+
+function placePiece() {
+  piece.shape.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value) {
+        board[piece.y + y][piece.x + x] = COLORS.indexOf(piece.color) + 1;
+      }
+    });
+  });
+  clearLines();
+}
+
+function clearLines() {
+  let lines = 0;
+  board = board.filter(row => {
+    if (row.every(cell => cell)) {
+      lines++;
+      return false;
+    }
+    return true;
+  });
+  while (board.length < ROWS) {
+    board.unshift(Array(COLS).fill(0));
+  }
+  if (lines > 0) {
+    score += lines * 100;
+  }
+  document.getElementById("score").innerText = `Score: ${score}`;
+}
+
+function gameOver() {
+  alert("Game Over! Final Score: " + score);
+  document.location.reload();
+}
+
+function update() {
+  if (!collision(0, 1)) {
+    piece.y++;
+  } else {
+    placePiece();
+    piece = createPiece();
+    if (collision(0, 0)) {
+      gameOver();
+    }
+  }
+  drawBoard();
+  drawPiece();
+}
+
+setInterval(update, 500);
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft" && !collision(-1, 0)) movePiece(-1, 0);
+  if (e.key === "ArrowRight" && !collision(1, 0)) movePiece(1, 0);
+  if (e.key === "ArrowDown" && !collision(0, 1)) movePiece(0, 1);
+  if (e.key === "ArrowUp") rotatePiece();
+  if (e.key === " ") dropPiece();
+});
+</script>
+</body>
+</html>

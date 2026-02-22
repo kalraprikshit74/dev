@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game</title>
+    <style>
+        body {
+           color: red;
+       }
+       .submit-button {
+       background-color: #4CAF50;
+       border: 1px solid #;
+       color: white
+       font-weight: bold
+       font-size: 12px;
+       }
+        .submit-button:hover {
+           background-color: #45a049;
+       }
+    </style>
+</head>
+<body>
+<h1>
+    <br/><br/><br/>
+    <center>
+        <form method="post" action="/">
+            {{result}}<br/>lives: {{lives}}   score: {{score}}<br/>
+        Hello Vansh:<br/>
+        {{num1}} X {{num2}} = <input type="text" name="answer" required autofocus />
+            <input type="hidden" name="num1" value="{{num1}}"/>
+            <input type="hidden" name="num2" value="{{num2}}"/>
+            <button type="submit" value="Submit" class="submit-button">Submit</button>
+            <input type="hidden" name="lives" value="{{lives}}"/>
+            <input type="hidden" name="score" value="{{score}}"/>
+        </form>
+    </center>
+</h1>
+</body>
+</html>

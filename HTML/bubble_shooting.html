@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Shooter</title>
+    <style>
+        body {
+            margin: 0;
+            background: #87CEEB;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: black;
+        }
+        #winner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="winner">You Win!</div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        const bubbleColor = "red"; 
+        const bubbles = [];
+        const bubbleSize = 30;
+        const rows = 3, cols = 19;
+        const cannon = { x: canvas.width / 2, y: canvas.height - 50, angle: Math.PI / 2 };
+        let shootingBullet = createBullet(cannon.x, cannon.y);
+        let score = 0;
+        let aiming = false;
+        
+        function createBubble(x, y) {
+            return { x, y, color: bubbleColor, radius: bubbleSize };
+        }
+        
+        function createBullet(x, y) {
+            return { x, y, radius: 10, speed: 7, moving: false };
+        }
+        
+        function drawBubble(bubble) {
+            ctx.beginPath();
+            ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
+            ctx.fillStyle = bubble.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+        
+        function drawBullet(bullet) {
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "black";
+            ctx.fill();
+            ctx.closePath();
+        }
+        
+        function drawCannon() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(cannon.x - 10, cannon.y - 30, 20, 30);
+        }
+        
+        function drawAimLine() {
+            if (aiming) {
+                ctx.setLineDash([5, 10]);
+                ctx.strokeStyle = "black";
+                ctx.beginPath();
+                ctx.moveTo(cannon.x, cannon.y);
+                ctx.lineTo(cannon.x, 0);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        function createBubbleGrid() {
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    let x = col * bubbleSize * 2 + bubbleSize;
+                    let y = row * bubbleSize * 2 + bubbleSize;
+                    bubbles.push(createBubble(x, y));
+                }
+            }
+        }
+        
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawCannon();
+            bubbles.forEach(drawBubble);
+            drawBullet(shootingBullet);
+            drawAimLine();
+            document.getElementById("score").innerText = "Score: " + score;
+            
+            if (shootingBullet.moving) {
+                shootingBullet.y -= shootingBullet.speed;
+                checkCollisions();
+                
+                if (shootingBullet.y < 0) {
+                    shootingBullet.moving = false;
+                    shootingBullet = createBullet(cannon.x, cannon.y);
+                }
+            }
+            
+            if (bubbles.length === 0) {
+                document.getElementById("winner").style.display = "block";
+            }
+            
+            requestAnimationFrame(update);
+        }
+        
+        function checkCollisions() {
+            for (let i = 0; i < bubbles.length; i++) {
+                let b = bubbles[i];
+                if (Math.hypot(shootingBullet.x - b.x, shootingBullet.y - b.y) < bubbleSize) {
+                    bubbles.splice(i, 1);
+                    score += 10;
+                    shootingBullet.moving = false;
+                    shootingBullet = createBullet(cannon.x, cannon.y);
+                    return;
+                }
+            }
+        }
+        
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft" && cannon.x > 20) {
+                cannon.x -= 20;
+                shootingBullet.x -= 20;
+            } else if (e.key === "ArrowRight" && cannon.x < canvas.width - 20) {
+                cannon.x += 20;
+                shootingBullet.x += 20;
+            } else if (e.key === "ArrowUp" && !shootingBullet.moving) {
+                shootingBullet.moving = true;
+            }
+        });
+        
+        canvas.addEventListener("mouseover", () => {
+            aiming = true;
+        });
+        
+        canvas.addEventListener("mouseout", () => {
+            aiming = false;
+        });
+        
+        createBubbleGrid();
+        update();
+    </script>
+</body>
+</html>
