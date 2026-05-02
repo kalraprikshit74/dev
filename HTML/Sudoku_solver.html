@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Solver</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --grid-bg: #ffffff;
+            --border-color: #34495e;
+            --text-color: #2c3e50;
+            --solved-color: #27ae60;
+            --user-color: #2980b9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h2 { color: var(--text-color); margin-bottom: 0px; }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* Sudoku Grid Styling */
+        #sudoku-grid {
+            border: 3px solid var(--border-color);
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        td {
+            padding: 0;
+            border: 1px solid #bdc3c7;
+        }
+
+        /* Thicker borders for 3x3 sections */
+        td:nth-child(3n) { border-right: 3px solid var(--border-color); }
+        td:nth-child(9n) { border-right: none; }
+        tr:nth-child(3n) td { border-bottom: 3px solid var(--border-color); }
+        tr:last-child td { border-bottom: none; }
+
+        .cell {
+            width: 45px;
+            height: 45px;
+            text-align: center;
+            font-size: 20px;
+            border: none;
+            outline: none;
+            color: var(--user-color);
+            font-weight: bold;
+        }
+
+        .cell:focus { background-color: #e8f4fd; }
+
+        .cell.solved {
+            color: var(--solved-color);
+            background-color: #fafffa;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button, input[type="file"] {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        #solve-btn { background-color: #2ecc71; color: white; }
+        #clear-btn { background-color: #e74c3c; color: white; }
+        #image-input { background-color: #34495e; color: white; }
+
+        #status {
+            margin-top: 15px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <h2>Sudoku Solver</h2>
+	<div class="instructions">
+    <b>How to Fill the Grid</b>
+    <ul>
+        <li><strong>Manual Entry:</strong> Click any cell and type a number (1-9). The cursor will automatically jump to the next cell.</li>
+        <li><strong>Keyboard Navigation:</strong> Use the <strong>Arrow Keys</strong> (↑, ↓, ←, →) to move quickly between boxes.</li>
+        <li><strong>Pasting:</strong> You can copy a string of numbers and paste (Ctrl+V) into any cell. The numbers will automatically fill the row and wrap to the next line.</li>
+    </ul>
+</div>
+
+    <div class="container">
+        <table id="sudoku-grid">
+            <tbody id="grid-body"></tbody>
+        </table>
+
+        <div class="controls">
+            <button id="solve-btn">Solve Puzzle</button>
+            <button id="clear-btn">Clear All</button>
+        </div>
+
+        <div id="status"></div>
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <script>
+        const gridBody = document.getElementById('grid-body');
+        const solveBtn = document.getElementById('solve-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const imageInput = document.getElementById('image-input');
+        const status = document.getElementById('status');
+        const loader = document.getElementById('loader');
+
+       // 1. Create Grid with Auto-Advance and Paste Support
+function createGrid() {
+    for (let r = 0; r < 9; r++) {
+        let row = document.createElement('tr');
+        for (let c = 0; c < 9; c++) {
+            let td = document.createElement('td');
+            let input = document.createElement('input');
+            input.type = 'text';
+            input.maxLength = 1;
+            input.className = 'cell';
+            input.dataset.row = r;
+            input.dataset.col = c;
+
+            // AUTO-ADVANCE: Move to next cell after typing a number
+            input.oninput = (e) => {
+                if (/[1-9]/.test(e.target.value)) {
+                    focusCell(parseInt(input.dataset.row), parseInt(input.dataset.col) + 1);
+                } else {
+                    e.target.value = '';
+                }
+            };
+
+            // ROW PASTE: Fill whole row if 9 digits are pasted
+            input.onpaste = (e) => {
+                e.preventDefault();
+                let pasteData = (e.clipboardData || window.clipboardData).getData('text');
+                let digits = pasteData.replace(/[^1-9]/g, '0').split(''); // Get only 1-9
+                
+                let currentC = parseInt(input.dataset.col);
+                let currentR = parseInt(input.dataset.row);
+
+                digits.forEach((digit) => {
+                    if (currentR < 9) {
+                        let targetInput = document.querySelector(`input[data-row="${currentR}"][data-col="${currentC}"]`);
+						if(digit>0)
+							targetInput.value = digit;
+
+                        currentC++; // Increment column
+                        if (currentC > 8) { // If we reach the end of the row
+                            currentC = 0;   // Reset to first column
+                            currentR++;     // Move to next row
+                        }
+                    }
+                });
+            };
+
+            // Arrow Key Navigation
+            input.onkeydown = (e) => {
+                let row = parseInt(input.dataset.row);
+                let col = parseInt(input.dataset.col);
+                if (e.key === "ArrowUp") focusCell(row - 1, col);
+                if (e.key === "ArrowDown") focusCell(row + 1, col);
+                if (e.key === "ArrowLeft") focusCell(row, col - 1);
+                if (e.key === "ArrowRight") focusCell(row, col + 1);
+                if (e.key === "Backspace" && input.value === "") focusCell(row, col - 1);
+            };
+
+            td.appendChild(input);
+            row.appendChild(td);
+        }
+        gridBody.appendChild(row);
+    }
+}
+
+function focusCell(r, c) {
+    // If we go past the end of a row, move to the start of the next row
+    if (c > 8) { r++; c = 0; }
+    if (c < 0) { r--; c = 8; }
+    
+    if (r >= 0 && r < 9 && c >= 0 && c < 9) {
+        document.querySelector(`input[data-row="${r}"][data-col="${c}"]`).focus();
+    }
+}
+
+        // 2. Sudoku Logic (Backtracking)
+        function getGridData() {
+            let board = [];
+            const inputs = document.querySelectorAll('.cell');
+            for (let r = 0; r < 9; r++) {
+                board[r] = [];
+                for (let c = 0; c < 9; c++) {
+                    let val = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`).value;
+                    board[r][c] = val === '' ? 0 : parseInt(val);
+                }
+            }
+            return board;
+        }
+
+        function isValid(board, r, c, k) {
+            for (let i = 0; i < 9; i++) {
+                const m = 3 * Math.floor(r / 3) + Math.floor(i / 3);
+                const n = 3 * Math.floor(c / 3) + i % 3;
+                if (board[r][i] == k || board[i][c] == k || board[m][n] == k) return false;
+            }
+            return true;
+        }
+
+        function solveSudoku(board) {
+			// 1. PHASE 1: Find "Naked Singles" (Cells with only 1 possible choice)
+			let changed = true;
+			while (changed) {
+				changed = false;
+				for (let r = 0; r < 9; r++) {
+					for (let c = 0; c < 9; c++) {
+						if (board[r][c] === 0) {
+							let options = [];
+							for (let k = 1; k <= 9; k++) {
+								if (isValid(board, r, c, k)) options.push(k);
+							}
+							if (options.length === 1) {
+								board[r][c] = options[0];
+								changed = true;
+							} else if (options.length === 0) {
+								return false; // This branch is impossible
+							}
+						}
+					}
+				}
+			}
+
+			// 2. PHASE 2: Backtracking for the remaining empty cells
+			return backtrack(board);
+		}
+
+		function backtrack(board) {
+			for (let r = 0; r < 9; r++) {
+				for (let c = 0; c < 9; c++) {
+					if (board[r][c] === 0) {
+						for (let k = 1; k <= 9; k++) {
+							if (isValid(board, r, c, k)) {
+								board[r][c] = k;
+								// Recursively try to solve the rest
+								if (backtrack(board)) return true;
+								// If it didn't work, reset and try next number
+								board[r][c] = 0;
+							}
+						}
+						return false; // No numbers 1-9 worked here
+					}
+				}
+			}
+			return true; // No more empty cells!
+		}
+
+        // 3. UI Actions
+        solveBtn.onclick = () => {
+            let board = getGridData();
+            if (solveSudoku(board)) {
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        let input = document.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
+                        if (!input.value) {
+                            input.value = board[r][c];
+                            input.classList.add('solved');
+                        }
+                    }
+                }
+                status.innerText = "Solved Successfully!";
+            } else {
+                status.innerText = "No solution exists for this board.";
+            }
+        };
+
+        clearBtn.onclick = () => {
+            document.querySelectorAll('.cell').forEach(input => {
+                input.value = '';
+                input.classList.remove('solved');
+            });
+            status.innerText = "Board Cleared";
+        };
+
+        createGrid();
+    </script>
+</body>
+</html>
