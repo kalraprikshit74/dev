@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc-to-PDF Converter</title>
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #fff; padding: 1rem 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        
+        .main-container { display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; }
+        
+        /* Sidebar & Controls */
+        .controls { width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .drop-zone { border: 2px dashed #cbd5e1; padding: 40px 20px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+        .drop-zone:hover { border-color: var(--primary); background: #eff6ff; }
+        
+        /* Preview Area */
+        #preview-pane { flex: 1; background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-y: auto; padding: 40px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* Formatting for the rendered doc */
+        .rendered-content { max-width: 800px; margin: 0 auto; color: #1e293b; line-height: 1.6; }
+        
+        button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        .status { margin-top: 15px; font-size: 0.9rem; color: #64748b; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>📄 PDF Converter</h2>
+    <div id="file-info">No file selected</div>
+</header>
+
+<div class="main-container">
+    <div class="controls">
+        <div class="drop-zone" id="drop-zone">
+            <p>Drag & Drop files or <strong>Browse</strong></p>
+            <input type="file" id="file-input" accept=".docx" hidden>
+        </div>
+        
+        <div class="status" id="status-msg">Ready for conversion.</div>
+        <button id="convert-btn" disabled>Download as PDF</button>
+        
+        <div style="margin-top: 20px;">
+            <h4>Converts .Docx to .PDF</h4>
+        </div>
+    </div>
+
+    <div id="preview-pane">
+        <div id="render-target" class="rendered-content">
+            <p style="text-align:center; color: #94a3b8; margin-top: 100px;">Your document preview will appear here.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const renderTarget = document.getElementById('render-target');
+    const convertBtn = document.getElementById('convert-btn');
+    const statusMsg = document.getElementById('status-msg');
+    let currentFileName = "document.pdf";
+
+    // Trigger file picker
+    dropZone.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    // Drag and Drop Logic
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.backgroundColor = "#eff6ff"; };
+    dropZone.ondragleave = () => { dropZone.style.backgroundColor = "transparent"; };
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        handleFile(e.dataTransfer.files[0]);
+    };
+
+    async function handleFile(file) {
+        if (!file) return;
+        
+        if (!file.name.endsWith('.docx')) {
+            alert("Currently, this demo specifically supports .docx for layout integrity.");
+            return;
+        }
+
+        currentFileName = file.name.replace(/\.[^/.]+$/, "") + ".pdf";
+        statusMsg.innerText = "Processing document...";
+        
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const arrayBuffer = e.target.result;
+            
+            try {
+                // Use Mammoth to convert Docx to HTML
+                const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                renderTarget.innerHTML = result.value;
+                
+                statusMsg.innerText = "Preview generated!";
+                convertBtn.disabled = false;
+            } catch (err) {
+                statusMsg.innerText = "Error parsing file.";
+                console.error(err);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    convertBtn.onclick = () => {
+        statusMsg.innerText = "Generating PDF (Heavy Render)...";
+        convertBtn.disabled = true;
+
+        const opt = {
+            margin:       1,
+            filename:     currentFileName,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        // Execution of the conversion
+        html2pdf().set(opt).from(renderTarget).save().then(() => {
+            statusMsg.innerText = "Conversion complete!";
+            convertBtn.disabled = false;
+        });
+    };
+</script>
+
+</body>
+</html>
