@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>PDF Text Extractor</title>
+    <!-- PDF.js core (stable v3.11.174) & Tesseract.js for OCR fallback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            padding: 2rem 1.5rem;
+            color: #0f172a;
+        }
+
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: 75vh;
+        }
+
+        .sidebar {
+            background: #fefdf8;
+            border-right: 1px solid #e9eef3;
+            padding: 1.75rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.8rem;
+        }
+
+        .brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #1e3c72, #2b4c7c);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 0.25rem;
+        }
+        .brand span {
+            background: none;
+            color: #2c5f8a;
+        }
+
+        .upload-zone {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 1.25rem;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .file-input-label {
+            font-weight: 600;
+            color: #1e40af;
+            cursor: pointer;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .drag-text {
+            font-size: 0.85rem;
+            color: #475569;
+            margin-top: 0.5rem;
+        }
+        .file-info {
+            background: #eef2ff;
+            border-radius: 1rem;
+            padding: 0.8rem 1rem;
+            font-size: 0.85rem;
+            word-break: break-word;
+        }
+        .file-info p {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.3rem 0;
+        }
+        .progress-area {
+            background: #f1f5f9;
+            border-radius: 1rem;
+            padding: 1rem;
+        }
+        .progress-bar-container {
+            background: #e2e8f0;
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.2s ease;
+            border-radius: 999px;
+        }
+        .progress-text {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #334155;
+        }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+            margin-top: 0.5rem;
+        }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem 0.9rem;
+            border-radius: 2rem;
+            font-weight: 500;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #1e3a5f;
+            border-color: #1e3a5f;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0f2c48;
+        }
+        .btn-outline {
+            border-color: #cbd5e1;
+            background: white;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+        .search-panel {
+            margin-top: 0.2rem;
+        }
+        .search-input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 1.5rem;
+            border: 1px solid #cbd5e1;
+            font-size: 0.85rem;
+            background: white;
+        }
+
+        .main-content {
+            background: white;
+            padding: 1.8rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .view-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #eef2f6;
+            padding-bottom: 0.75rem;
+        }
+        .toggle-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .mode-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .mode-btn.active {
+            background: #1e3a5f;
+            color: white;
+        }
+        .highlight-info {
+            font-size: 0.75rem;
+            color: #475569;
+        }
+        .text-viewer {
+            background: #ffffff;
+            border: 1px solid #eef2ff;
+            border-radius: 1.25rem;
+            padding: 1rem;
+            min-height: 500px;
+            max-height: 70vh;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Menlo', 'Cascadia Code', monospace;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            resize: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            background: transparent;
+            outline: none;
+        }
+        .editable-div {
+            font-family: inherit;
+            white-space: pre-wrap;
+        }
+        mark {
+            background-color: #ffec99;
+            padding: 0 2px;
+            border-radius: 6px;
+            color: #1e293b;
+        }
+        .footer-note {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-align: center;
+            border-top: 1px solid #ecf3fa;
+            padding-top: 1rem;
+            margin-top: 0.5rem;
+        }
+        .pag-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            justify-content: flex-end;
+        }
+        @media (max-width: 780px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            body {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="dashboard">
+        <!-- SIDEBAR with controls -->
+        <div class="sidebar">
+            <div class="brand"> PDF TEXT <span>Extractor</span></div>
+            <div class="upload-zone" id="dropZone">
+			<div class="upload-icon">📄</div>
+                <label class="file-input-label" for="pdfUpload">Choose PDF file</label>
+                <input type="file" id="pdfUpload" accept=".pdf" />
+            </div>
+            
+            <div class="file-info" id="fileInfoPanel">
+                <p> <strong>No file selected</strong></p>
+                <p> Pages: —</p>
+            </div>
+            
+            <div class="progress-area" id="progressArea">
+                <div style="display: flex; justify-content: space-between;">
+                    <span> Extraction</span>
+                    <span class="progress-text" id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="statusMsg" style="font-size:0.7rem; color:#2c5f8a;">Ready — Upload PDF</div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="copyBtn"> Copy to Clipboard</button>
+                <button class="btn btn-outline" id="downloadTxtBtn"> Download .txt</button>
+            </div>
+            
+            <div class="search-panel">
+                <input type="text" id="searchInput" class="search-input" placeholder=" Find keyword in extracted text..." autocomplete="off">
+                <div class="highlight-info" id="searchStats"></div>
+            </div>
+            <div style="font-size: 0.7rem; color: #4b5563; margin-top: auto;">
+                 TEXT EXTRACTOR | Made by PRIKSHIT KALRA
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT: text viewer with modes -->
+        <div class="main-content">
+            <div class="view-controls">
+                <div class="toggle-buttons">
+                    <button class="mode-btn active" data-view="continuous"> Continuous document</button>
+                    <button class="mode-btn" data-view="paginated">📖 Page by page</button>
+                </div>
+                <div class="highlight-info" id="pageIndicator" style="font-weight:500;"></div>
+            </div>
+            <div class="text-viewer" id="textViewer">
+                <div id="editableContent" contenteditable="true" style="min-height: 480px; outline: none; white-space: pre-wrap; font-family: inherit;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ----- DOM elements -----
+        const fileInput = document.getElementById('pdfUpload');
+        const dropZone = document.getElementById('dropZone');
+        const fileInfoPanel = document.getElementById('fileInfoPanel');
+        const progressFill = document.getElementById('progressFill');
+        const progressPercentSpan = document.getElementById('progressPercent');
+        const statusMsgDiv = document.getElementById('statusMsg');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadTxtBtn');
+        const searchInput = document.getElementById('searchInput');
+        const searchStats = document.getElementById('searchStats');
+        const editableDiv = document.getElementById('editableContent');
+        const viewButtons = document.querySelectorAll('.mode-btn');
+        const pageIndicatorSpan = document.getElementById('pageIndicator');
+
+        // ----- State variables -----
+        let extractedPagesArray = [];     // text per page (string)
+        let totalPages = 0;
+        let currentViewMode = 'continuous';   // 'continuous' or 'paginated'
+        let currentPaginatedPage = 1;
+        let baseTextCache = "";           // plain text version of current view
+        let isExtracting = false;
+        let currentAbortFlag = false;      // simple abort for new uploads while extracting
+
+        // ----- Helper: progress UI -----
+        function updateProgress(current, total, customMessage = null) {
+            const percent = total === 0 ? 0 : Math.floor((current / total) * 100);
+            progressFill.style.width = `${percent}%`;
+            progressPercentSpan.innerText = `${percent}%`;
+            if (customMessage) statusMsgDiv.innerText = customMessage;
+            else statusMsgDiv.innerText = `Processing page ${current} of ${total}...`;
+        }
+
+        function resetProgressUI() {
+            progressFill.style.width = '0%';
+            progressPercentSpan.innerText = '0%';
+            statusMsgDiv.innerText = 'Idle. Upload PDF (OCR for scans).';
+        }
+
+        function updateFileInfo(name, pageCount) {
+            if (name) {
+                fileInfoPanel.innerHTML = `<p> <strong>${escapeHtml(name)}</strong></p><p> Pages: ${pageCount}</p>`;
+            } else {
+                fileInfoPanel.innerHTML = `<p> <strong>No file selected</strong></p><p> Pages: —</p>`;
+            }
+        }
+
+        // ----- Text ordering from PDF.js (maintain reading order similar to first code)-----
+        function buildTextFromTextContent(textContent) {
+            const items = textContent.items.slice();
+            // sort by Y (top to bottom), then X (left to right)
+            items.sort((a, b) => {
+                const yDiff = b.transform[5] - a.transform[5];
+                if (Math.abs(yDiff) > 5) return yDiff;
+                return a.transform[4] - b.transform[4];
+            });
+            let text = '';
+            let lastY = null;
+            for (const item of items) {
+                if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+                    text += '\n';
+                }
+                text += item.str + ' ';
+                lastY = item.transform[5];
+            }
+            return text.trim();
+        }
+
+        // ----- OCR Helpers (from second code, enhanced) -----
+        async function renderPageToCanvas(page, scale = 2.2) {
+            const viewport = page.getViewport({ scale: scale });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            return canvas;
+        }
+
+        async function performOCR(canvas) {
+            // Tesseract.recognize with English; logger suppressed for cleaner UI
+            const { data: { text } } = await Tesseract.recognize(canvas, 'eng', {
+                logger: m => { if (m.status === 'recognizing text') { /* optional */ } }
+            });
+            return text.trim();
+        }
+
+        // ----- Main extraction (supports OCR fallback for scanned/empty text pages) -----
+        async function extractTextFromPDF(file) {
+            if (isExtracting) {
+                statusMsgDiv.innerText = "Extraction already in progress. Wait or refresh.";
+                return false;
+            }
+            // reset all state
+            extractedPagesArray = [];
+            editableDiv.innerText = " Loading PDF and analyzing pages...";
+            currentAbortFlag = false;
+            isExtracting = true;
+            updateFileInfo(file.name, '—');
+            resetProgressUI();
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDocument = await pdfjsLib.getDocument({ data: arrayBuffer, useSystemFonts: true }).promise;
+                totalPages = pdfDocument.numPages;
+                updateFileInfo(file.name, totalPages);
+                
+                let pageTexts = [];
+                // Iterate pages sequentially
+                for (let i = 1; i <= totalPages; i++) {
+                    if (currentAbortFlag) break;
+                    updateProgress(i, totalPages, ` Processing page ${i} / ${totalPages} (extracting text or OCR)`);
+                    
+                    const page = await pdfDocument.getPage(i);
+                    const textContent = await page.getTextContent();
+                    
+                    let pageExtractedText = "";
+                    // decide: if textContent has valid items, use normal extraction, else run OCR
+                    const hasSubstantialText = textContent.items.length > 0;
+                    if (hasSubstantialText) {
+                        // standard text extraction with reading order
+                        pageExtractedText = buildTextFromTextContent(textContent);
+                        // additional fallback: if extracted text is suspiciously short (<20 chars) and page isn't tiny, still consider OCR?
+                        if (pageExtractedText.length < 25 && (page.view[2] * page.view[3] > 50000)) {
+                            statusMsgDiv.innerText = `Page ${i} low text confidence → running OCR `;
+                            const canvas = await renderPageToCanvas(page, 2.0);
+                            pageExtractedText = await performOCR(canvas);
+                            statusMsgDiv.innerText = `Page ${i} OCR completed.`;
+                        }
+                    } else {
+                        // empty items: definitely scan/image-based page
+                        statusMsgDiv.innerText = `Page ${i} is an image/scanned → performing OCR...`;
+                        const canvas = await renderPageToCanvas(page, 2.2);
+                        pageExtractedText = await performOCR(canvas);
+                        statusMsgDiv.innerText = `Page ${i} OCR finished.`;
+                    }
+                    
+                    pageTexts.push(pageExtractedText || "[Empty page]");
+                    // optional: update real-time continuous preview after each page? but we do final render.
+                }
+                
+                if (currentAbortFlag) {
+                    statusMsgDiv.innerText = "Extraction cancelled.";
+                    isExtracting = false;
+                    return false;
+                }
+                
+                extractedPagesArray = pageTexts;
+                updateProgress(totalPages, totalPages, " Extraction complete! (OCR applied where needed)");
+                statusMsgDiv.innerText = `Ready — ${totalPages} page(s) extracted. Selectable & OCR fallback.`;
+                // render according to current view mode
+                renderTextView();
+                return true;
+            } catch (err) {
+                console.error(err);
+                statusMsgDiv.innerText = ` Error: ${err.message || "Failed to parse PDF. Ensure valid PDF."}`;
+                editableDiv.innerText = `Extraction error: ${err.message}\nTry another PDF.`;
+                return false;
+            } finally {
+                isExtracting = false;
+            }
+        }
+        
+        // ----- Render text based on continuous / paginated mode -----
+        function renderTextView() {
+            if (!extractedPagesArray || extractedPagesArray.length === 0) {
+                if (!isExtracting) editableDiv.innerText = " No text extracted. Upload a PDF (scanned pages use OCR).";
+                return;
+            }
+            
+            if (currentViewMode === 'continuous') {
+                const fullText = extractedPagesArray.join('\n\n• • • page break • • •\n\n');
+                setEditableContent(fullText);
+                pageIndicatorSpan.innerText = ` Continuous view • ${extractedPagesArray.length} pages (editable)`;
+                removePaginationNav();
+                performSearchHighlight(); // reapply search if any
+            } 
+            else if (currentViewMode === 'paginated') {
+                if (currentPaginatedPage < 1) currentPaginatedPage = 1;
+                if (currentPaginatedPage > extractedPagesArray.length) currentPaginatedPage = extractedPagesArray.length;
+                const pageText = extractedPagesArray[currentPaginatedPage - 1] || "";
+                setEditableContent(pageText);
+                pageIndicatorSpan.innerText = ` Page ${currentPaginatedPage} of ${extractedPagesArray.length}  (click text to edit)`;
+                ensurePaginationControls();
+                performSearchHighlight();
+            }
+        }
+        
+        function setEditableContent(text) {
+            baseTextCache = text;
+            editableDiv.innerText = text;
+        }
+        
+        // dynamic pagination controls (prev/next)
+        function removePaginationNav() {
+            const existingNav = document.querySelector('.pag-nav');
+            if (existingNav) existingNav.remove();
+        }
+        
+        function ensurePaginationControls() {
+            let navDiv = document.querySelector('.pag-nav');
+            if (!navDiv && currentViewMode === 'paginated' && extractedPagesArray.length) {
+                const viewerDiv = document.getElementById('textViewer');
+                const nav = document.createElement('div');
+                nav.className = 'pag-nav';
+                nav.innerHTML = `<button class="btn-outline" id="prevPageBtn" style="padding:4px 14px;">◀ Prev Page</button>
+                                 <button class="btn-outline" id="nextPageBtn" style="padding:4px 14px;">Next Page ▶</button>`;
+                viewerDiv.insertBefore(nav, viewerDiv.firstChild);
+                
+                document.getElementById('prevPageBtn')?.addEventListener('click', (e) => {
+                    if (currentViewMode === 'paginated' && extractedPagesArray.length) {
+                        currentPaginatedPage = Math.max(1, currentPaginatedPage - 1);
+                        renderTextView();
+                    }
+                });
+                document.getElementById('nextPageBtn')?.addEventListener('click', (e) => {
+                    if (currentViewMode === 'paginated' && extractedPagesArray.length) {
+                        currentPaginatedPage = Math.min(extractedPagesArray.length, currentPaginatedPage + 1);
+                        renderTextView();
+                    }
+                });
+            } else if (navDiv && currentViewMode !== 'paginated') {
+                navDiv.remove();
+            }
+        }
+        
+        // ----- Search & Highlight (preserve editable, mark tags) -----
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
+        function performSearchHighlight() {
+            const term = searchInput.value.trim();
+            if (!term) {
+                searchStats.innerText = '';
+                if (editableDiv.innerText !== baseTextCache) {
+                    editableDiv.innerText = baseTextCache;
+                } else {
+                    // ensure base text restored if no term
+                    if (editableDiv.innerHTML.includes('<mark')) {
+                        editableDiv.innerText = baseTextCache;
+                    }
+                }
+                return;
+            }
+            
+            const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');
+            const highlighted = baseTextCache.replace(regex, `<mark class="search-highlight">$1</mark>`);
+            editableDiv.innerHTML = highlighted;
+            const matches = (baseTextCache.match(regex) || []).length;
+            searchStats.innerText = matches ? ` ${matches} match(es) for "${escapeHtml(term)}"` : ' No matches';
+        }
+        
+        // ----- Copy & Download -----
+        function getCurrentPlainText() {
+            // from editableDiv but we want plain text without mark tags: use innerText
+            return editableDiv.innerText;
+        }
+        
+        async function copyToClipboard() {
+            const text = getCurrentPlainText();
+            if (!text || text === "Upload a PDF to begin...") {
+                statusMsgDiv.innerText = "Nothing to copy. Extract text first.";
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(text);
+                statusMsgDiv.innerText = " Copied to clipboard!";
+                setTimeout(() => { if(!isExtracting) statusMsgDiv.innerText = "Ready"; }, 1500);
+            } catch (err) {
+                statusMsgDiv.innerText = "Copy failed";
+            }
+        }
+        
+        function downloadAsTxt() {
+            const content = getCurrentPlainText();
+            if (!content || content === "Upload a PDF to begin...") {
+                statusMsgDiv.innerText = "No text to download.";
+                return;
+            }
+            const blob = new Blob([content], {type: 'text/plain;charset=utf-8'});
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = 'prism_extracted_text.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            statusMsgDiv.innerText = " Downloaded as .txt";
+            setTimeout(() => { if(!isExtracting) statusMsgDiv.innerText = "Ready"; }, 1200);
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        // ----- Event listeners -----
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                if (file.type === 'application/pdf') {
+                    if (isExtracting) {
+                        currentAbortFlag = true;
+                        setTimeout(() => extractTextFromPDF(file), 50);
+                    } else {
+                        extractTextFromPDF(file);
+                    }
+                } else {
+                    alert('Please select a valid PDF document.');
+                }
+            }
+        });
+        
+        // Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.background = '#eef2ff';
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.background = '#f8fafc';
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.background = '#f8fafc';
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                if (isExtracting) {
+                    currentAbortFlag = true;
+                    setTimeout(() => extractTextFromPDF(file), 50);
+                } else {
+                    extractTextFromPDF(file);
+                }
+                fileInput.files = e.dataTransfer.files;
+            } else {
+                statusMsgDiv.innerText = "Drop a valid PDF file only.";
+            }
+        });
+        
+        copyBtn.addEventListener('click', copyToClipboard);
+        downloadBtn.addEventListener('click', downloadAsTxt);
+        
+        // view mode switching
+        viewButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.getAttribute('data-view');
+                if (mode === 'continuous') {
+                    currentViewMode = 'continuous';
+                    viewButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderTextView();
+                } else if (mode === 'paginated') {
+                    currentViewMode = 'paginated';
+                    currentPaginatedPage = 1;
+                    viewButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderTextView();
+                }
+            });
+        });
+        
+        // Search with debounce
+        let searchDebounce;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                if (extractedPagesArray && extractedPagesArray.length) {
+                    performSearchHighlight();
+                } else if (baseTextCache) {
+                    performSearchHighlight();
+                }
+            }, 200);
+        });
+        
+        // when user manually edits content, reapply search (but preserve marks elegantly)
+        editableDiv.addEventListener('input', () => {
+            // If search term active, re-run highlighting because innerHTML might have changed manually
+            if (searchInput.value.trim() !== "") {
+                // Update baseTextCache with current plain text before re-highlight
+                baseTextCache = editableDiv.innerText;
+                performSearchHighlight();
+            } else {
+                // sync baseTextCache to latest plain text if no search active
+                baseTextCache = editableDiv.innerText;
+            }
+        });
+        
+        // initial UI state
+        resetProgressUI();
+        editableDiv.innerText = " Upload any PDF (text-based).\n•\n• Switch between continuous / page-by-page view.\n• Edit, search, copy, download.";
+        updateFileInfo(null, 0);
+    })();
+</script>
+</body>
+</html>
