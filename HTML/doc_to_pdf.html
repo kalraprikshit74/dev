@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doc-to-PDF Converter</title>
     <!-- Dependencies -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+		<script src="https://unpkg.com/docx-preview/dist/docx-preview.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+	
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; }
         body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -89,24 +91,25 @@
         }
 
         currentFileName = file.name.replace(/\.[^/.]+$/, "") + ".pdf";
-        statusMsg.innerText = "Processing document...";
+        statusMsg.innerText = "Processeed Document...";
         
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const arrayBuffer = e.target.result;
-            
-            try {
-                // Use Mammoth to convert Docx to HTML
-                const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
-                renderTarget.innerHTML = result.value;
-                
-                statusMsg.innerText = "Preview generated!";
-                convertBtn.disabled = false;
-            } catch (err) {
-                statusMsg.innerText = "Error parsing file.";
-                console.error(err);
-            }
-        };
+		const reader = new FileReader();
+
+		reader.onload = async (e) => {
+			const arrayBuffer = e.target.result;
+			
+			// 2. Render the DOCX with high fidelity settings
+			const options = {
+				renderFullPage: true,      // Essential for layout
+				ignoreLastRenderedPageBreak: false,
+				useExperimentalLily: true  // Helps with complex shapes/borders
+			};
+
+			await docx.renderAsync(arrayBuffer, renderTarget, null, options);
+			statusMsg.innerText = "Conversion complete!";
+			convertBtn.disabled = false;
+			
+		};
         reader.readAsArrayBuffer(file);
     }
 
@@ -115,7 +118,7 @@
         convertBtn.disabled = true;
 
         const opt = {
-            margin:       1,
+            margin:       0.5,
             filename:     currentFileName,
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { scale: 2, useCORS: true },
@@ -124,10 +127,10 @@
 
         // Execution of the conversion
         html2pdf().set(opt).from(renderTarget).save().then(() => {
-            statusMsg.innerText = "Conversion complete!";
             convertBtn.disabled = false;
         });
     };
+	convertBtn.disabled = true;
 </script>
 
 </body>
