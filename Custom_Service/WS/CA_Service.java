@@ -23,7 +23,7 @@ public class CA_Service extends RestService {
 	@Consumes({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
 	public Response getCAData(@Context HttpServletRequest request, @QueryParam("startDate") @DefaultValue("") String startDate, @QueryParam("endDate") @DefaultValue("") String endDate, @QueryParam("groupBy") @DefaultValue("") String groupBy) {
 		matrix.db.Context context = this.getAuthenticatedContext(request, false);
-		ArrayList<String> projects = CustomImplementation.getProjects(context);
+		ArrayList<String> projects = CustomImplementation.getCAData(context,startDate,endDate,groupBy);
  		return Response.status(200).entity(projects).build();
 	}
 	@Path("/getCAS")
