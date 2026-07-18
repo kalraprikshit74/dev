@@ -7,7 +7,7 @@ import com.matrixone.apps.domain.util.MqlUtil;
 
 import matrix.db.Context;
 import matrix.util.StringList;
-public class CR_Implementation{
+public class CustomImplementation{
     public static ArrayList<String> getProjects(Context context){
         ArrayList<String> projects = new ArrayList<>();
         try {

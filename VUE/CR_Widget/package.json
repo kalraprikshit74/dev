@@ -1,7 +1,7 @@
 {
   "name": "my-prog",
   "version": "0.0.0",
-  "author": "DSGS",
+  "author": "PK",
   "private": true,
   "scripts": {
     "build": "webpack --config ./webpack/webpack.config.js"

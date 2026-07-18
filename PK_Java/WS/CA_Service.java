@@ -15,22 +15,22 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-@Path("/cr")
-public class CR_Service extends RestService {
-	@Path("/getProjects")
+@Path("/ca")
+public class CA_Service extends RestService {
+	@Path("/getCAData")
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
 	@Consumes({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
-	public Response getProjects(@Context HttpServletRequest request) {
+	public Response getCAData(@Context HttpServletRequest request, @QueryParam("startDate") @DefaultValue("") String startDate, @QueryParam("endDate") @DefaultValue("") String endDate, @QueryParam("groupBy") @DefaultValue("") String groupBy) {
 		matrix.db.Context context = this.getAuthenticatedContext(request, false);
 		ArrayList<String> projects = CustomImplementation.getProjects(context);
  		return Response.status(200).entity(projects).build();
 	}
-	@Path("/getCRS")
+	@Path("/getCAS")
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
 	@Consumes({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
-	public Response getCRs(@Context HttpServletRequest request, @QueryParam("project") @DefaultValue("") String project) {
+	public Response getCAs(@Context HttpServletRequest request, @QueryParam("project") @DefaultValue("") String project) {
 		matrix.db.Context context = this.getAuthenticatedContext(request, false);
 		System.out.println("Project is : "+project);
 		ArrayList<HashMap<String,String>> CRs = CustomImplementation.getCRS(context,project);
