@@ -6,7 +6,8 @@ public class CustomModeler extends ModelerBase {
 	@Override
 	public Class<?>[] getServices() {
 		return new Class<?>[] {
-			CR_Service.class
+			CR_Service.class,
+			CA_Service.class
 		};
 	}
 

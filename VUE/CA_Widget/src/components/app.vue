@@ -21,21 +21,18 @@
         />
         <span class="select-label">Group By:</span>
         <select 
-          v-model="tempProject" 
+          v-model="groupby" 
           class="custom-input-style"
-          @change="onProjectChange"
         >
-          <option 
-            v-for="item in data" 
-            :key="item" 
-            :value="item">
-            {{ item }}
-          </option>
+          <option value="current">state</option>
+          <option value="severity">severity</option>
+
         </select>
         <v-btn
           class="text-none action-btn blue-btn"
           variant="flat"
           size="small"
+          @click="submitAction"
         >
           Submit
         </v-btn>
@@ -66,6 +63,8 @@
                 :fill="segment.color"
                 stroke="#ffffff"
                 stroke-width="1.5"
+                class="clickable-segment"
+                @click="fetchTableData(segment.label)"
               />
 
               <!-- Percentage Labels -->
@@ -79,7 +78,7 @@
                 font-weight="bold"
                 text-anchor="middle"
                 dominant-baseline="central"
-                class="label-shadow"
+                class="label-shadow pointer-events-none"
               >
                 {{ segment.percentage }}%
               </text>
@@ -113,30 +112,43 @@
               <tr>
                 <th>
                   <div class="header-content">
-                    <span class="header-label">Highest no. of task</span>
+                    <span class="header-label">Owner</span>
                   </div>
                 </th>
                 <th>
                   <div class="header-content">
-                    <span class="header-label">Highest avg approved</span>
+                    <span class="header-label">Name</span>
                   </div>
                 </th>
                 <th>
                   <div class="header-content">
-                    <span class="header-label">lowsest avg approved</span>
+                    <span class="header-label">Current</span>
+                  </div>
+                </th>
+                <th>
+                  <div class="header-content">
+                    <span class="header-label">Type</span>
+                  </div>
+                </th>
+                <th>
+                  <div class="header-content">
+                    <span class="header-label">Revision</span>
                   </div>
                 </th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, idx) in tableData" :key="idx">
-                <td>{{ row.actionItem }}</td>
+                <td>{{ row.owner }}</td>
                 <td>
-                  <span class="status-badge" :style="{ borderColor: getStatusColor(row.status), color: getStatusColor(row.status) }">
-                    {{ row.status }}
+                  <span class="status-badge" >
+                    {{ row.name }}
                   </span>
                 </td>
-                <td class="date-cell">{{ row.dateModified }}</td>
+                <td class="date-cell">{{ row.current }}</td>
+                <td class="date-cell">{{ row.type }}</td>
+                <td class="date-cell">{{ row.revision }}</td>
+
               </tr>
               <tr v-if="tableData.length === 0">
                 <td colspan="3" class="empty-table-state">No matching dashboard records found.</td>
@@ -151,40 +163,124 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { groupBy } from 'lodash';
+import { ref, computed, onMounted } from 'vue';
 const startDate = ref('');
 const endDate = ref('');
 const renderKey = ref(0);
+const url = ref('');
+const groupby = ref(['state'])
 
-const tempProject = ref('');
-const data = ref(['State']);
+const chartData = ref([]);
 
-const chartData = ref([
-  { label: 'In Work', value: 3, color: '#00d2b4' },
-  { label: 'Complete', value: 1, color: '#0084ff' },
-  { label: 'Approved', value: 2, color: '#ffb119' },
-  { label: 'Prepare', value: 8, color: '#ff415b' },
-  { label: 'In Approval', value: 4, color: '#7d52ce' }
-]);
-
-const tableData = ref([
-  { actionItem: 'Review pipeline configuration changes', status: 'In Work', dateModified: '2026-07-12\n14:32' },
-  { actionItem: 'Approve dependency security patch updates', status: 'Approved', dateModified: '2026-07-15\n09:11' },
-  { actionItem: 'Prepare database migration schema rollback strategies', status: 'Prepare', dateModified: '2026-07-18\n16:05' }
-]);
-
-const onProjectChange = () => {};
+const tableData = ref([]);
 
 const getStatusColor = (statusLabel) => {
   const match = chartData.value.find(item => item.label.toLowerCase() === statusLabel.toLowerCase());
   return match ? match.color : '#718096';
 };
+
 const clearDates = () => {
   startDate.value = '';
   endDate.value = '';
   renderKey.value += 1;
 };
 
+const getServiceURL = async () => {
+  return new Promise((resolve, reject) => {
+    requirejs(["DS/i3DXCompassServices/i3DXCompassServices"], (services) => {
+      services.getServiceUrl({
+        serviceName: "3DSpace",
+        platformId: widget.getValue("x3dPlatformId"),
+        onComplete(data) {
+          resolve(data);
+        },
+        onFailure(error) {
+          console.error(`Error: ${JSON.stringify(error)}`); // Replaced legacy LOG
+          reject(error);
+        },
+      });
+    });
+  });
+};
+
+/**
+ * Sends an authenticated request via Dassault Systèmes WAFData
+ * @param {string} endpoint - The API endpoint suffix (e.g., '/resources/data')
+ * @param {string} methodType - HTTP Method (e.g., 'GET', 'POST')
+ */
+const sendSimpleRequest = async (endpoint, methodType) => {
+  return new Promise((resolve, reject) => {
+    requirejs(["DS/WAFData/WAFData"], (WAFData) => {
+      const apiUrl = `${url.value}${endpoint}`;
+      WAFData.authenticatedRequest(apiUrl, {
+        method: methodType,
+        timeout: 600000,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        crossOrigin: true,
+        type: "json",
+        onComplete(dataResp) {
+          resolve(dataResp);
+        },
+        onFailure(error) {
+          reject(JSON.stringify(error));
+        },
+      });
+    });
+  });
+};
+const submitAction = async () =>{
+
+  try {
+const [year, month, day] = startDate.value.split('-');
+startDate.value = `${month}-${day}-${year}`;
+
+const [endYear, endMonth, endDay] = endDate.value.split('-');
+endDate.value = `${endMonth}-${endDay}-${endYear}`;
+    url.value = await getServiceURL();
+    console.log("MKK Service URL initialized:", url.value);
+    chartData.value = await sendSimpleRequest(`/CustomService/ca/getCAData?startDate=${startDate.value}&endDate=${endDate.value}&groupBy=${groupby.value}`);
+  } catch (error) {
+    console.error("Failed to initialize Service URL on mount:", error);
+  }
+}
+const ChartSelectionRequest = async (endpoint, methodType) => {
+  return new Promise((resolve, reject) => {
+    requirejs(["DS/WAFData/WAFData"], (WAFData) => {
+      const apiUrl = `${url.value}${endpoint}`;
+      console.log("requirejs loaded WAFData successfully. Target URL is:", apiUrl);
+      WAFData.authenticatedRequest(apiUrl, {
+        method: methodType,
+        timeout: 600000,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        crossOrigin: true,
+        type: "json",
+        onComplete(dataResp) {
+          console.log(" WAFData request completed successfully!", dataResp);
+          resolve(dataResp);
+        },
+        onFailure(error) {
+          console.error(" WAFData request FAILED on the server!", error);
+          reject(JSON.stringify(error));
+        },
+      });
+    });
+  });
+};
+const fetchTableData = async (segmentlabel) => {
+  try {
+    // 2. Await the promise returned by your utility function
+    const response = await ChartSelectionRequest(`/CustomService/ca/getCAS?startDate=${startDate.value}&endDate=${endDate.value}&groupBy=${groupby.value}&groupByValue=${segmentlabel}`);
+    tableData.value = response; 
+    }
+    catch (error) {
+      console.error("Authenticated network request failed:", error);
+  }
+};
 const totalValue = computed(() => {
   return chartData.value.reduce((sum, item) => sum + item.value, 0);
 });
@@ -195,7 +291,8 @@ const segments = computed(() => {
   const centerY = 100;
   const outerRadius = 90;
   const innerRadius = 50;
-  const labelRadius = 70; 
+  const labelRadius = 70;
+
 
   if (totalValue.value === 0) return [];
 
@@ -232,16 +329,18 @@ const segments = computed(() => {
 
     const midAngle = startAngle + angleDelta / 2;
     const labelCoords = getCoordinates(labelRadius, midAngle);
-
+    const label = item.label;
     return {
       pathData,
       color: item.color,
       percentage,
       labelX: labelCoords.x,
-      labelY: labelCoords.y
+      labelY: labelCoords.y,
+      label: label
     };
   });
-});
+ });
+
 </script>
 
 <style scoped>
@@ -449,5 +548,11 @@ const segments = computed(() => {
 .header-label {
   display: inline-flex;
   align-items: center;
+}
+.pointer-events-none {
+  pointer-events: none;
+}
+.clickable-segment {
+  cursor: pointer;
 }
 </style>
