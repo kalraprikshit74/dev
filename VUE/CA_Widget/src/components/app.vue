@@ -24,8 +24,8 @@
           v-model="groupby" 
           class="custom-input-style"
         >
-          <option value="current">state</option>
-          <option value="severity">severity</option>
+          <option value="current">State</option>
+          <option value="severity">Severity</option>
 
         </select>
         <v-btn
@@ -107,7 +107,7 @@
           <table class="custom-table">
             <thead>
               <tr>
-                <th colspan="3">Change Action - Route Task Statistics</th>
+                <th colspan="3">Change Action - Details</th>
               </tr>
               <tr>
                 <th>
