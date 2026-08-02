@@ -25,7 +25,7 @@
           class="custom-input-style"
         >
           <option value="current">State</option>
-          <option value="severity">Severity</option>
+          <option value="Category of Change">Category of Change</option>
 
         </select>
         <v-btn
@@ -234,14 +234,15 @@ const sendSimpleRequest = async (endpoint, methodType) => {
 const submitAction = async () =>{
 
   try {
-const [year, month, day] = startDate.value.split('-');
-startDate.value = `${month}-${day}-${year}`;
-
-const [endYear, endMonth, endDay] = endDate.value.split('-');
-endDate.value = `${endMonth}-${endDay}-${endYear}`;
+    let stDate = startDate.value;
+    let edDate = endDate.value
+    const [year, month, day] = stDate.split('-');
+    stDate = `${month}-${day}-${year}`;
+    const [endYear, endMonth, endDay] = edDate.split('-');
+    edDate = `${endMonth}-${endDay}-${endYear}`;
     url.value = await getServiceURL();
     console.log("MKK Service URL initialized:", url.value);
-    chartData.value = await sendSimpleRequest(`/CustomService/ca/getCAData?startDate=${startDate.value}&endDate=${endDate.value}&groupBy=${groupby.value}`);
+    chartData.value = await sendSimpleRequest(`/CustomService/ca/getCAData?startDate=${stDate}&endDate=${edDate}&groupBy=${groupby.value}`);
   } catch (error) {
     console.error("Failed to initialize Service URL on mount:", error);
   }
@@ -273,8 +274,14 @@ const ChartSelectionRequest = async (endpoint, methodType) => {
 };
 const fetchTableData = async (segmentlabel) => {
   try {
+    let stDate = startDate.value;
+    let edDate = endDate.value
+    const [year, month, day] = stDate.split('-');
+    stDate = `${month}-${day}-${year}`;
+    const [endYear, endMonth, endDay] = edDate.split('-');
+    edDate = `${endMonth}-${endDay}-${endYear}`;
     // 2. Await the promise returned by your utility function
-    const response = await ChartSelectionRequest(`/CustomService/ca/getCAS?startDate=${startDate.value}&endDate=${endDate.value}&groupBy=${groupby.value}&groupByValue=${segmentlabel}`);
+    const response = await ChartSelectionRequest(`/CustomService/ca/getCAS?startDate=${stDate}&endDate=${edDate}&groupBy=${groupby.value}&groupByValue=${segmentlabel}`);
     tableData.value = response; 
     }
     catch (error) {

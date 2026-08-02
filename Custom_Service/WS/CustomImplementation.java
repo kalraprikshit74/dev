@@ -1,7 +1,10 @@
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 
 import com.matrixone.apps.domain.DomainObject;
 import com.matrixone.apps.domain.util.FrameworkException;
@@ -57,6 +60,8 @@ public class CustomImplementation{
         HashMap<String,Integer> counts = new HashMap<>();
         List<String> colors = Arrays.asList("#ff415b", "#2ecc71", "#3498db", "#f1c40f", "#e67e22", "#9b59b6", "#1abc9c", "#34495e", "#2c3e50", "#7f8c8d", "#8e44ad", "#c0392b", "#ff7675", "#74b9ff", "#a29bfe", "#ffeaa7", "#fab1a0", "#55efc4","#dfe6e9", "#2d3436");
         try {
+            if(!"current".equals(groupBy))
+                groupBy = "attribute["+groupBy+"]";
             String whereClause = "originated >'" +startDate + "' && originated<'" + endDate+"'";
             StringList selects = new StringList();
             selects.add(groupBy);
@@ -72,6 +77,7 @@ public class CustomImplementation{
             int i =0;
             for(String key: counts.keySet()){
                 HashMap<String,Object> data = new HashMap<>();
+                System.out.println("keys:"+key);
                 data.put("label", key);
                 data.put("value", counts.get(key));
                 data.put("color", colors.get(i++));
@@ -86,14 +92,18 @@ public class CustomImplementation{
     public static MapList getCAs(Context context,String startDate,String endDate,String groupBy, String groupByValue) throws FrameworkException{
         startDate = startDate.replaceAll("-","/");
         endDate = endDate.replaceAll("-","/");
+
         try {
+            if(!"current".equals(groupBy))
+                groupBy = "attribute["+groupBy+"]";
             String whereClause = "originated >'" +startDate + "' && originated<'" + endDate+"' && "+groupBy+"=='"+groupByValue+"'";
+            System.out.println("MKDebug: whereClause:"+whereClause);
             StringList selects = new StringList();
             selects.add("type");
             selects.add("name");
             selects.add("revision");
             selects.add("current");
-            selects.add("attribute[severity]");
+            selects.add("attribute[Category of Change]");
             selects.add("owner");
             MapList CAs = DomainObject.findObjects(context,"Change Action","*","*","*","*",whereClause, null, false, selects, ((short)0),"*","");
             return CAs;   
@@ -102,5 +112,57 @@ public class CustomImplementation{
             e.printStackTrace();
             throw e;
         }
+    }
+    public static List<HashMap<String, Object>> getCATimeSeries(Context context, String startDate, String endDate){
+        List<HashMap<String, Object>> result = new ArrayList<>();    
+        try{   
+            HashMap<String,Integer> originatedCounts = new HashMap<>();
+            HashMap<String,Integer> completedCounts = new HashMap<>();
+            DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a");
+            DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            startDate = startDate.replaceAll("-","/");
+            endDate = endDate.replaceAll("-","/");
+            String sWhere = "originated >'" +startDate + "' && originated<'" + endDate+"'";
+            System.out.println("MKDebug sWhere: "+sWhere);
+            String sCAs = MqlUtil.mqlCommand(context, "temp query bus $1 $2 $3 where $4 select $5 $6 dump $7","Change Action","*","*",sWhere,"state[Complete].actual","originated","|");
+            StringList slCAs = FrameworkUtil.split(sCAs, "\n");
+            System.out.println("MKDebug slCAs: "+slCAs);
+            for(String sca:slCAs){
+                StringList slCAData = FrameworkUtil.split(sca, "|");
+                String completed = slCAData.get(3);
+                String originated = slCAData.get(4);
+                originated = LocalDateTime.parse(originated, inputFormatter).withDayOfMonth(1).format(outputFormatter);
+                originatedCounts.putIfAbsent(originated, 0);
+                originatedCounts.put(originated, originatedCounts.get(originated)+1);
+                if(!completed.isBlank()){
+                    completed = LocalDateTime.parse(completed, inputFormatter).withDayOfMonth(1).format(outputFormatter);
+                    completedCounts.putIfAbsent(completed, 0);
+                    completedCounts.put(completed, completedCounts.get(completed)+1);
+                }
+                System.out.println("originatedcount"+originatedCounts);
+                System.out.println("completedcount"+completedCounts);                
+
+            }
+
+        for (Entry<String, Integer> entry : originatedCounts.entrySet()) {
+            HashMap<String, Object> map = new HashMap<String, Object>();
+            map.put("date", entry.getKey());
+            map.put("type", "created");
+            map.put("value", entry.getValue());
+            result.add(map);
+        }
+
+        for (Entry<String, Integer> entry : completedCounts.entrySet()) {
+            HashMap<String, Object> map = new HashMap<String, Object>();
+            map.put("date", entry.getKey());
+            map.put("type", "resolved");
+            map.put("value", entry.getValue());
+            result.add(map);
+        }
+        System.out.println("MKDebug result:"+result);
+        } catch (FrameworkException e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 }

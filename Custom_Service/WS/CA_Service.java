@@ -35,4 +35,13 @@ public class CA_Service extends RestService {
 		Object CAs = CustomImplementation.getCAs(context,startDate,endDate,groupBy,groupByValue);
  		return Response.status(200).entity(CAs).build();
 	}
+	@Path("/getCATimeSeries")
+	@GET
+	@Produces({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
+	@Consumes({ MediaType.APPLICATION_JSON, MediaProviderJSON.TYPE })
+	public Response getCATimeSeries(@Context HttpServletRequest request, @QueryParam("startDate") @DefaultValue("") String startDate, @QueryParam("endDate") @DefaultValue("") String endDate) throws Exception {
+		matrix.db.Context context = this.getAuthenticatedContext(request, false);
+		Object CAs = CustomImplementation.getCATimeSeries(context,startDate,endDate);
+ 		return Response.status(200).entity(CAs).build();
+	}
 }
