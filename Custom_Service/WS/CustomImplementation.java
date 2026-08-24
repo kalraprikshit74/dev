@@ -1,11 +1,13 @@
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.IsoFields;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 
+import com.matrixone.apps.domain.DomainConstants;
 import com.matrixone.apps.domain.DomainObject;
 import com.matrixone.apps.domain.util.FrameworkException;
 import com.matrixone.apps.domain.util.FrameworkUtil;
@@ -164,5 +166,49 @@ public class CustomImplementation{
             e.printStackTrace();
         }
         return result;
+    }
+     public static HashMap<String,HashMap<String,Integer>> getReport(Context context, String type,String startDate,String endDate,String groupBy,String slice){
+        HashMap<String,HashMap<String,Integer>> report = new HashMap<>();
+        try {
+            DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a");
+            String sWhere = "originated >='" +startDate + "' && originated<='" + endDate+"'";
+            String sObjects = MqlUtil.mqlCommand(context, "temp query bus $1 $2 $3 where $4 select $5 $6 dump $7",type, "*", "*",sWhere, groupBy, "originated", "|");
+            System.out.println("MKK sReports: "+sObjects);
+            StringList slObjects = FrameworkUtil.split(sObjects, "\n");
+            for (String sReport : slObjects) {
+                StringList slObjectData = FrameworkUtil.split(sReport, "|");
+                String state = slObjectData.get(3);
+                String sOriginated = slObjectData.get(4);
+                LocalDateTime dateTime = LocalDateTime.parse(sOriginated, DATE_FORMATTER);
+                String monthKey = dateTime.getMonth().toString();
+                if(!"Monthly".equals(slice))
+                    monthKey = "Q"+dateTime.get(IsoFields.QUARTER_OF_YEAR);
+                System.out.println("slice: "+slice+" monthKey: "+monthKey+" sOriginated: "+sOriginated);
+                report.putIfAbsent(monthKey, new HashMap<>());
+                HashMap<String,Integer> monthReport = report.get(monthKey);
+                monthReport.putIfAbsent(state, 0);
+                monthReport.put(state, monthReport.get(state)+1);
+            }
+
+        } catch (FrameworkException e) {
+            e.printStackTrace();
+        }
+        return report;
+    }
+    public static MapList getCellData(Context context, String type,String startDate,String endDate,String groupBy,String slice,String month) throws Exception{
+        try {
+            String sWhere = "originated >='" +startDate + "' && originated<='" + endDate+"'";
+            StringList selects = new StringList();
+            selects.add(DomainConstants.SELECT_TYPE);
+            selects.add(DomainConstants.SELECT_NAME);
+            selects.add(DomainConstants.SELECT_REVISION);
+            selects.add(DomainConstants.SELECT_DESCRIPTION);
+            selects.add(DomainConstants.SELECT_PHYSICAL_ID);
+            MapList data = DomainObject.findObjects(context,type,"*","*","*","*",sWhere, null, false, selects, ((short)0),"*","");
+            return data;
+        } catch (FrameworkException e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 }

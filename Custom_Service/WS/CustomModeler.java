@@ -7,7 +7,8 @@ public class CustomModeler extends ModelerBase {
 	public Class<?>[] getServices() {
 		return new Class<?>[] {
 			CR_Service.class,
-			CA_Service.class
+			CA_Service.class,
+			CustomService.class
 		};
 	}
 
