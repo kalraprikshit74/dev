@@ -5,10 +5,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import com.matrixone.apps.domain.DomainConstants;
 import com.matrixone.apps.domain.DomainObject;
+import com.matrixone.apps.domain.util.ContextUtil;
 import com.matrixone.apps.domain.util.FrameworkException;
 import com.matrixone.apps.domain.util.FrameworkUtil;
 import com.matrixone.apps.domain.util.MapList;
@@ -195,9 +197,9 @@ public class CustomImplementation{
         }
         return report;
     }
-    public static MapList getCellData(Context context, String type,String startDate,String endDate,String groupBy,String slice,String month) throws Exception{
+    public static MapList getCellData(Context context, String type,String startDate,String endDate,String groupBy,String slice,String groupval) throws Exception{
         try {
-            String sWhere = "originated >='" +startDate + "' && originated<='" + endDate+"'";
+            String sWhere = "originated >='" +startDate + "' && originated<='" + endDate+"' && "+groupBy+"=="+groupval;
             StringList selects = new StringList();
             selects.add(DomainConstants.SELECT_TYPE);
             selects.add(DomainConstants.SELECT_NAME);
@@ -209,6 +211,141 @@ public class CustomImplementation{
         } catch (FrameworkException e) {
             e.printStackTrace();
             throw e;
+        }
+    }
+
+public static void delete(Context context, String[] ids, Boolean deletechild) throws Exception {
+    StringList selects = new StringList();
+    selects.add(DomainConstants.SELECT_PHYSICAL_ID);
+    selects.add(DomainConstants.SELECT_PROJECT);
+    
+    MapList mlRoots = DomainObject.getInfo(context, ids, selects);
+    
+    for (Object map : mlRoots) {
+        Map data = (Map) map;
+        System.out.println(data);
+        
+        String physicalid = (String) data.get(DomainConstants.SELECT_PHYSICAL_ID);
+        String cs = (String) data.get(DomainConstants.SELECT_PROJECT);
+        
+        if ("RecycleBin".equals(cs)) {
+            continue;
+        }
+        
+        DomainObject doProduct = DomainObject.newInstance(context, physicalid);
+        
+        if (deletechild) {
+            StringList relationshipList = new StringList();
+            try {
+                MapList childs = doProduct.getRelatedObjects(context, "*", "VPMReference", selects, relationshipList, false, true, (short) 0, "", "", 0);
+                System.out.println("MKK data childs:" + childs);
+                
+                for (Object child : childs) {
+                    if (child instanceof Map) {
+                        Map<?, ?> objectMap = (Map<?, ?>) child;
+                        Object physicalIdObj = objectMap.get(DomainConstants.SELECT_PHYSICAL_ID);
+                        String phyidChild = physicalIdObj != null ? physicalIdObj.toString() : null;
+                        
+                        System.out.println("MKK data project:" + cs);
+                        System.out.println("MKK data physicalID:" + phyidChild);
+                        
+                        String command = "mod bus $1 project $2 $3 $4 $5 $6";
+                        MqlUtil.mqlCommand(context, command, phyidChild, "RecycleBin", "XP_VPMReference_Ext.OriginalCS", cs, "XP_VPMReference_Ext.DeletedBy", context.getUser());
+                        System.out.println("Product deleted");
+                    }
+                }
+                
+                String command = "mod bus $1 project $2 $3 $4 $5 $6";
+                MqlUtil.mqlCommand(context, command, physicalid, "RecycleBin", "XP_VPMReference_Ext.OriginalCS", cs, "XP_VPMReference_Ext.DeletedBy", context.getUser());
+                
+            } catch (FrameworkException e) {
+                e.printStackTrace();
+                throw e;
+            }
+        } else {
+            try {
+                System.out.println("Checking related objects for physical id: " + physicalid);
+                String command = "mod bus $1 project $2 $3 $4 $5 $6";
+                MqlUtil.mqlCommand(context, command, physicalid, "RecycleBin", "XP_VPMReference_Ext.OriginalCS", cs, "XP_VPMReference_Ext.DeletedBy", context.getUser());
+                
+            } catch (FrameworkException e) {
+                e.printStackTrace();
+                throw e;
+            }
+        }
+    }
+}
+    public static void recycle(Context context, String[] ids) throws Exception{
+        try {
+            for(String id:ids){
+            DomainObject doProduct = DomainObject.newInstance(context,id);
+            String originalcs = doProduct.getInfo(context, "attribute[XP_VPMReference_Ext.OriginalCS]");
+            System.out.println(originalcs);
+            String command = "mod bus $1 project $2 $3 $4 $5 $6";
+            MqlUtil.mqlCommand(context, command, id, originalcs,"XP_VPMReference_Ext.OriginalCS", "","XP_VPMReference_Ext.DeletedBy","");            
+            }
+        } catch (FrameworkException e) {
+            e.printStackTrace();
+            throw e;
+        }
+    }
+        public static void permanentlydelete(Context context, String[] ids) throws Exception{
+        try {
+            DomainObject.deleteObjects(context,ids);
+        } catch (FrameworkException e) {
+            e.printStackTrace();
+            throw e;
+        }
+    }
+    public static MapList getMyRecycleBin(Context context,String type) throws FrameworkException{
+        try {
+            String sWhere = "project=='RecycleBin' && to[VPMInstance]=='FALSE' && attribute[XP_VPMReference_Ext.DeletedBy]=='"+context.getUser()+"'";
+            System.out.println(sWhere);
+            ContextUtil.pushContext(context);
+            StringList selects = new StringList();
+            selects.add("attribute[PLMEntity.V_Name]");
+            selects.add("type");
+            selects.add("name");
+            selects.add("revision");
+            selects.add("current");
+            selects.add("title");
+            selects.add("physicalid");
+            MapList Binlist = DomainObject.findObjects(context,type,"*","*","*","*",sWhere, null, false, selects, ((short)0),"*","");
+            System.out.println(Binlist);
+            return Binlist;   
+        }
+         catch (FrameworkException e) {
+            e.printStackTrace();
+            throw e;
+        }
+        finally{
+            ContextUtil.popContext(context);
+        }
+    }
+
+    public static MapList getChildren(Context context, String id) throws FrameworkException {
+        StringList selects = new StringList();
+        selects.add(DomainConstants.SELECT_PHYSICAL_ID);
+        selects.add(DomainConstants.SELECT_PROJECT);
+        selects.add(DomainConstants.SELECT_NAME);
+        selects.add(DomainConstants.SELECT_REVISION);
+        selects.add("attribute[PLMEntity.V_Name]");
+        selects.add(DomainConstants.SELECT_TYPE);
+        selects.add(DomainConstants.SELECT_CURRENT);
+        StringList relationshipList = new StringList();
+        try {
+            ContextUtil.pushContext(context);
+            DomainObject doProduct = DomainObject.newInstance(context, id);
+            MapList children = doProduct.getRelatedObjects(context, "*", "VPMReference", selects, relationshipList,
+                    false, true, (short) 1, "", "", 0);
+            System.out.println("MKK data childs:" + children);
+            return children;
+
+        } catch (FrameworkException e) {
+            e.printStackTrace();
+            throw e;
+        } finally {
+            ContextUtil.popContext(context);
         }
     }
 }

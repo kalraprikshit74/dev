@@ -77,7 +77,7 @@
           
           <!-- Fetch the count for each state, defaulting to 0 -->
           <td v-for="state in dynamicStates" :key="state" :class="{ 'clickable-cell': getCount(rowKey, state) > 0 }"
-              @click="handleCellClick">
+              @click="handleCellClick(formatRowKey(rowKey), state)">
             {{ getCount(rowKey, state) }}
           </td>
           </tr>
@@ -119,7 +119,7 @@
             <td>{{ item.description }}</td>
             <td>{{ item.type }}</td>
             <td>{{ item.revision }}</td>
-            <td>{{ item.physicalId }}</td>
+            <td>{{ item.physicalid }}</td>
           </tr>
         </tbody>
       </table>
@@ -160,6 +160,13 @@ const dynamicStates = computed(() => {
   
   return Array.from(stateSet); // Returns: ['IN_WORK', 'Exists', 'FROZEN']
 });
+function formatRowKey(rowKey) {
+  const monthIndex = allMonths.indexOf(rowKey);
+  if (monthIndex !== -1) {
+    return monthIndex + 1; // Returns 1-12 for months
+  }
+  return rowKey;
+}
 const getCount = (rowKey, state) => {
   console.log("Looking for rowKey:", rowKey);
   console.log("What is inside tableData?:", tableData.value);
@@ -254,11 +261,11 @@ const CellSelectionRequest = async (endpoint, methodType) => {
     });
   });
 };
-const handleCellClick = async () => {
+const handleCellClick = async (rowValue,state) => {
   try {
     isModalOpen.value = true;
     // 2. Await the promise returned by your utility function
-    const response = await CellSelectionRequest(`/CustomService/cr/getCRS`); 
+    const response = await CellSelectionRequest(`/CustomService/custom/getCellData?type=${selectedType.value}&year=${selectedYear.value}&groupBy=${selectedGroupBy.value}&slice=${selectedSlice.value}&month=${rowValue}&groupval=${state}`); 
     // 3. Update your local state with the returned data
     CellData.value = response; 
   } catch (error) {
@@ -597,12 +604,15 @@ const exportDetailsToExcel = () => {
 .table-container {
   width: 100%;
   overflow-x: auto;
+  overflow: auto !important;
   border-top: 1px solid #e0e0e0;
   padding-top: 20px;
 }
 
 .custom-table {
   width: 100%;
+  overflow: auto;
+  overflow-x: auto;
   border-collapse: collapse;
   text-align: left;
   background-color: #ffffff;
