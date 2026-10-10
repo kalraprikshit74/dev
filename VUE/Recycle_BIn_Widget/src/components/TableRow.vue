@@ -1,38 +1,69 @@
-<!-- TableRow.vue -->
 <template>
-  <!-- 1. Render Current Row -->
-  <tr :class="{ 'selected-row': selectedRows.includes(row.physicalid) }">
+  <!-- Current row -->
+  <tr
+    :class="{
+      'selected-row': selectedRows.includes(row.physicalid)
+    }"
+  >
+    <!-- Checkbox -->
     <td class="height">
-      <input 
-        type="checkbox" 
+      <input
+        type="checkbox"
         :value="row.physicalid"
-        v-model="computedSelectedRows" 
+        v-model="computedSelectedRows"
         class="custom-checkbox"
       />
     </td>
-    <td v-for="header in headers" :key="header.key" class="p-4">
-      <!-- Title / Expandable Column -->
-      <template v-if="header.key === 'attribute[PLMEntity.V_Name]' || header.label === 'Title'">
-        <div class="tree-cell-wrapper" :style="{ paddingLeft: `${depth * 20}px` }">
-          <button 
-            v-if="row.hasChildren || row.children?.length" 
-            @click.stop="toggleExpand(row)"
+
+    <!-- Dynamic columns -->
+    <td
+      v-for="header in headers"
+      :key="header.key"
+      class="p-4"
+    >
+      <!-- Expandable title column -->
+      <template
+        v-if="
+          header.key === 'attribute[PLMEntity.V_Name]'
+          || header.label === 'Title'
+        "
+      >
+        <div
+          class="tree-cell-wrapper"
+          :style="{ paddingLeft: `${depth * 20}px` }"
+        >
+          <button
             class="toggle-btn"
+            @click.stop="toggleExpand(row)"
           >
-            {{ row.loading ? '...' : (row.expanded ? '-' : '+') }}
+            {{
+              row.loading
+                ? '...'
+                : row.expanded
+                  ? '-'
+                  : '+'
+            }}
           </button>
-          <span>{{ row[header.key] ?? '-' }}</span>
+
+            <!-- Product / 3D cube icon -->
+            <span class="product-icon" aria-hidden="true">
+              <img src="./icon/Product.png" alt="product">
+            </span>
+
+            <span class="product-name-text">
+              {{ row[header.key] ?? '-' }}
+            </span>
         </div>
       </template>
-      
-      <!-- Standard Data Columns -->
+
+      <!-- Other columns -->
       <template v-else>
         {{ row[header.key] ?? '-' }}
       </template>
     </td>
   </tr>
 
-  <!-- 2. RECURSION: Render Child Rows when expanded -->
+  <!-- Recursively render children -->
   <template v-if="row.expanded && row.children?.length">
     <TableRow
       v-for="child in row.children"
@@ -42,7 +73,7 @@
       :depth="depth + 1"
       :selected-rows="selectedRows"
       :toggle-expand="toggleExpand"
-      @update:selected-rows="$emit('update:selectedRows',$event)"
+      @update:selectedRows="$emit('update:selectedRows', $event)"
     />
   </template>
 </template>
@@ -50,19 +81,46 @@
 <script setup>
 import { computed } from 'vue'
 
+defineOptions({
+  name: 'TableRow'
+})
+
 const props = defineProps({
-  row: { type: Object, required: true },
-  headers: { type: Array, required: true },
-  depth: { type: Number, default: 0 },
-  selectedRows: { type: Array, default: () => [] },
-  toggleExpand: { type: Function, required: true }
+  row: {
+    type: Object,
+    required: true
+  },
+
+  headers: {
+    type: Array,
+    required: true
+  },
+
+  depth: {
+    type: Number,
+    default: 0
+  },
+
+  selectedRows: {
+    type: Array,
+    default: () => []
+  },
+
+  toggleExpand: {
+    type: Function,
+    required: true
+  }
 })
 
 const emit = defineEmits(['update:selectedRows'])
 
-// Support v-model two-way binding for checkboxes across deep components
 const computedSelectedRows = computed({
-  get: () => props.selectedRows,
-  set: (val) => emit('update:selectedRows', val)
+  get() {
+    return props.selectedRows
+  },
+
+  set(value) {
+    emit('update:selectedRows', value)
+  }
 })
 </script>

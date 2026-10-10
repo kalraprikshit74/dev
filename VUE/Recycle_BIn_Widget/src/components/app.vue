@@ -1,9 +1,15 @@
 <template>
   <div class="app-container">
      <div class="table-card">      
-      <div class="windows-container">
-      <div class="action-bar">
-        <button class="delete" @click="handleDelete" title="Delete">
+      <div class="plm-toolbar">
+      <div class="plm-toolbar-actions">
+        <button
+          class="plm-icon-btn plm-delete-btn"
+          title="Delete selected products"
+          aria-label="Delete selected products"
+          :disabled="selectedRows.length === 0"
+          @click="deleteSelected"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 7h16" />
           <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
@@ -11,78 +17,73 @@
           <path d="M10 11v6" />
           <path d="M14 11v6" />
         </svg>
-      </button>
+        </button>
 
-      <!-- Restore Button -->
-      <button class="restore" @click="handleRestore" title="Restore">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          class="plm-icon-btn plm-restore-btn"
+          title="Restore selected products"
+          aria-label="Restore selected products"
+          :disabled="selectedRows.length === 0"
+          @click="restoreSelected"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 14L4 9l5-5" />
           <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
         </svg>
-      </button>
-    </div>
-    </div>
-          <div class="table-container" id="drop">
+        </button>
+        </div>
+      </div>
+    <div class="table-container" id="drop">
         <table class="custom-table">
-          <thead>
-            <tr>
-              <th class="checkbox-col">
-                <input 
-                  type="checkbox" 
-                  :checked="isAllSelected" 
-                  @change="toggleSelectAll" 
-                  class="custom-checkbox"
-                />
-              </th>
-              <th v-for="header in headers" :key="header.key">
-                <div class="header-content">
-                  <span class="header-label">{{ header.label }}</span>
-                </div>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="row in tableData" :key="row.id || row.physicalid">
-              <!-- Main Row -->
-              <tr :class="{ 'selected-row': selectedRows.includes(row.id || row.physicalid) }">
-                <!-- Row Checkbox Selection -->
-                <td class="height">
-                  <input 
-                    type="checkbox" 
-                    v-model="selectedRows" 
-                    :value="row.physicalid"
+          <colgroup>
+          <col :style="{ width: `${columnWidths[0]}px` }" />
+
+          <col
+            v-for="(header, index) in headers"
+            :key="header.key"
+            :style="{ width: `${columnWidths[index + 1]}px` }"
+          />
+        </colgroup>
+              <thead>
+              <tr>
+                <th class="checkbox-col">
+                  <input
+                    type="checkbox"
+                    :checked="isAllSelected"
+                    @change="toggleSelectAll"
                     class="custom-checkbox"
                   />
-                </td>
+                </th>
 
-                <!-- Dynamic columns mapping row property directly to header keys -->
-                <td v-for="header in headers" :key="header.key" class="p-4">
-                  <!-- Expand/Collapse Button placed in the Title column -->
-                  <span v-if="header.label === 'Title'" class="expand-toggle-container">
-                    <button 
-                      @click.stop="toggleExpand(row)" 
-                      class="toggle-btn"
-                    >
-                      {{ row.loading ? '...' : (row.expanded ? '-' : '+') }}
-                    </button>
-                  </span>
+                <th
+                  v-for="(header, index) in headers"
+                  :key="header.key"
+                  :style="{
+                    width: `${columnWidths[index + 1]}px`,
+                    position: 'relative'
+                  }"
+                >
+                  {{ header.label }}
 
-                  {{ row[header.key] !== undefined ? row[header.key] : '-' }}
-                </td>
+                  <span
+                    class="column-resizer"
+                    @pointerdown.stop="startResize($event, index + 1)"
+                  ></span>
+                </th>
               </tr>
-
-        <TableRow
-          v-for="row in row.children"
-          :key="row.physicalid"
-          :row="child"
-          :headers="headers"
-          :depth="0"
-          v-model:selected-rows="selectedRows"
-          :toggle-expand="toggleExpand"
-        />
-          </template>
+            </thead>
+        <tbody>
+          <TableRow
+            v-for="row in tableData"
+            :key="row.physicalid"
+            :row="row"
+            :headers="headers"
+            :depth="0"
+            v-model:selected-rows="selectedRows"
+            :toggle-expand="toggleExpand"
+          />
           </tbody>
-        </table>
+      </table>
       </div>
     </div>
 
@@ -91,7 +92,8 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue';
+import { ref, computed, nextTick, onMounted,onBeforeUnmount } from 'vue';
+import TableRow from './TableRow.vue'
 const SecurityContext=ref('');
 const url = ref('');
 const headers = ref([
@@ -104,7 +106,45 @@ const headers = ref([
 ]);
 const selectedRows = ref([])
 const tableData = ref([])
-const childrenData = ref([])
+const columnWidths = ref([26, 275, 155, 155, 155, 155])
+import './table.css'
+
+let resizeState = null
+
+const startResize = (event, index) => {
+  if (event.button !== 0) return
+
+  event.preventDefault()
+
+  resizeState = {
+    index,
+    startX: event.clientX,
+    startWidth: columnWidths.value[index]
+  }
+
+  window.addEventListener('pointermove', onResize)
+  window.addEventListener('pointerup', stopResize)
+}
+
+const onResize = (event) => {
+  if (!resizeState) return
+
+  const delta = event.clientX - resizeState.startX
+  const newWidth = Math.max(
+    60,
+    resizeState.startWidth + delta
+  )
+
+  columnWidths.value[resizeState.index] = newWidth
+}
+
+const stopResize = () => {
+  resizeState = null
+  window.removeEventListener('pointermove', onResize)
+  window.removeEventListener('pointerup', stopResize)
+}
+
+onBeforeUnmount(stopResize)
 
 const getServiceURL = async () => {
   return new Promise((resolve, reject) => {
@@ -386,7 +426,8 @@ const toggleExpand = async (row) => {
       console.log("Fetching children for ID:", row.physicalid);
       const response = await sendSimpleRequest(`/CustomService/custom/getChildren?id=${row.physicalid}`)  
       
-      row.children =  response;
+      row.children =  [...response];
+      console.log(row.children);
       
     } catch (error) {
       console.error("Failed to load child items:", error);
@@ -417,372 +458,3 @@ const handleRestore = async () => {
 }
 
 </script>
-
-<style scoped>
-*{
-  font-size: 15px;
- }
-.app-container {
-  padding: 24px;
-  max-width: 100%;
-  margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-/* Main Container Styling */
-.recycle-bin-wrapper {
-  max-width: 1100px;
-  margin: 4px auto;
-  padding: 0 20px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #334155;
-  background-color: #f8fafc;
-  min-height: 100vh;
-}
-.empty-state-cell {
-  height: 250px; 
-  text-align: center;
-  background-color: #e59393;
-}
-
-.empty-state-content {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  color: #555555;
-  font-size: 20px;
-  font-weight: 600;
-}
-.toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
-  font-weight: bold;
-  line-height: 1;
-  background-color: #ffffff;
-  border: 1px solid #cccccc; /* Default box border */
-  border-radius: 2px;
-  cursor: pointer;
-  margin-right: 6px;
-  user-select: none;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
-
-/* Black border on hover for the expand/collapse box */
-.toggle-btn:hover {
-  border-color: #000000 !important;
-  background-color: #f9f9f9;
-}
-
-.toggle-btn:focus {
-  outline: none;
-  border-color: #000000;
-}
-
-/* Indentation and Tree alignment for child rows */
-.child-row-cell {
-  position: relative;
-}
-
-.child-indent {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 20px; /* Indentation offset for hierarchy */
-  position: relative;
-}
-
-/* Optional vertical tree connector line */
-.child-indent::before {
-  content: '';
-  position: absolute;
-  left: -12px;
-  top: -16px;
-  bottom: 50%;
-  width: 1px;
-  background-color: #cbd5e1;
-}
-
-.child-indent::after {
-  content: '';
-  position: absolute;
-  left: -12px;
-  top: 50%;
-  width: 10px;
-  height: 1px;
-  background-color: #cbd5e1;
-}
- /* .height{
-  height: 100%;
-}  */
-/* Drag and Drop Zone */
-.drop-zone {
-  height: 100vh;
-  border: 2px dashed #cbd5e1;
-  background-color: #ffffff;
-  border-radius: 16px;
-  padding: 32px;
-  text-align: center;
-  transition: all 0.2s ease-in-out;
-  margin-bottom: 24px;
-  cursor: pointer;
-}
-
-.drop-zone:hover {
-  border-color: #6366f1;
-  background-color: #fafaff;
-}
-
-.drop-zone-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.drop-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: #e0e7ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-}
-
-.drop-zone:hover .drop-icon-wrapper {
-  transform: scale(1.08);
-}
-
-.drop-svg {
-  width: 24px;
-  height: 24px;
-  color: #4f46e5;
-}
-
-.drop-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0;
-}
-
-.drop-subtitle {
-  font-size: 12px;
-  color: #64748b;
-  margin: 2px 0 0 0;
-}
-
-/* Table Card Layout */
-.table-card {
-  background: #ffffff;
-  border-radius: 0px;
-  box-shadow: none;
-  border: 1px solid #cbd5e1;
-  overflow: hidden;
-}
-
-/* Windows Container Header Header Section */
-.windows-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e2e8f0;
-  background-color: #ffffff;
-}
-
-.dashboard-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: 0.025em;
-  margin: 0;
-}
-
-/* Action Bar Buttons */
-.action-bar {
-  display: flex;
-  gap: 8px;
-  margin-left: 15px;
-}
-
-
-.win-btn.delete {
-  background-color: #fff1f2;
-  margin: 3px;
-}
-
-
-.restore {
-  background-color: #ecfdf5;
-  margin: 3px;
-}
-
-/* Table Container & Custom Styling */
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-  height: 100vh;
-  overflow-x: scroll;
-}
-
-.custom-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.custom-table th {
-  background-color: #eef2f6;
-  border-bottom: 1px solid #cbd5e1;
-  border-right: 1px solid #cbd5e1;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #1e293b;
-  text-transform: none;
-  letter-spacing: normal;
-}
-
-.custom-table td {
-  padding: 16px 20px;
-  font-size: 14px;
-  color: #334155;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.custom-table tbody tr {
-  transition: background-color 0.15s ease;
-}
-
-.custom-table tbody tr:hover {
-  background-color: #f8fafc;
-}
-
-.custom-table tr.selected-row {
-  background-color: #eef2ff !important;
-}
-
-/* Checkbox Column Settings */
-.checkbox-col {
-  width: 36px;
-  text-align: center;
-  background-color: #ededed; /* Matched to the solid light-grey sidebar column color from the reference */
-  border-bottom: 1px solid #cbd5e1;
-  border-right: 1px solid #cbd5e1;
-}
-
-/* Target table cells in the checkbox column to match the same sidebar color */
-.custom-table td.checkbox-col,
-.custom-table td:first-child {
-  background-color: #eef2f6;
-  border-right: 1px solid #cbd5e1;
-}
-
-.custom-checkbox {
-  width: 14px;
-  height: 14px;
-  accent-color: #4f46e5;
-  cursor: pointer;
-  border-radius: 2px;
-}
-
-/* Empty State Handling */
-.empty-state {
-  text-align: center;
-  padding: 120px 20px;
-  color: #64748b;
-  font-style: normal;
-  font-weight: 600;
-  font-size: 24px;
-  background-color: #e59393;
-}
-.tree-cell-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding-left: 20px; /* Adjust spacing for the tree branch */
-}
-
-/* Vertical and horizontal branch connector lines */
-.tree-cell-wrapper::before {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: -20px; /* Connects upward to parent row */
-  bottom: 50%; /* Stops halfway to form the L-shape */
-  width: 1px;
-  border-left: 1px solid #b0b0b0;
-}
-
-.tree-cell-wrapper::after {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  width: 12px;
-  border-bottom: 1px solid #b0b0b0;
-}
-
-/* Optional spacing class if needed */
-.child-indent {
-  margin-right: 6px;
-}
-/* --- Toggle Button Styling & Black Hover Border --- */
-.toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
-  font-weight: bold;
-  line-height: 1;
-  background-color: #ffffff;
-  border: 1px solid #cccccc;
-  border-radius: 2px;
-  cursor: pointer;
-  margin-right: 6px;
-  user-select: none;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-  vertical-align: middle;
-}
-
-/* Black border on hover for the expand sign box */
-.toggle-btn:hover {
-  border-color: #000000 !important;
-  background-color: #f9f9f9;
-}
-
-.toggle-btn:focus {
-  outline: none;
-  border-color: #000000;
-}
-
-/* --- Tree Hierarchy Styling --- */
-.tree-cell-wrapper {
-  display: inline-flex;
-  align-items: center;
-  position: relative;
-}
-
-.child-indent {
-  display: inline-block;
-  width: 16px;
-}
-
-.tree-line {
-  position: relative;
-  display: inline-block;
-  width: 10px;
-  height: 12px;
-  margin-right: 4px;
-  border-left: 1px solid #b0b0b0;
-  border-bottom: 1px solid #b0b0b0;
-  vertical-align: middle;
-}
-</style>
